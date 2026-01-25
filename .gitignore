@@ -1,0 +1,14 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# Editor directories
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+
+# OS generated files
+Desktop.ini

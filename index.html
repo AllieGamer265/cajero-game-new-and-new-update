@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Banco Gamer</title>
+
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <!-- Add Firebase products that you want to use -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* Estilo de cajero estándar */
+        body {
+            background-color: #2c3e50;
+            /* Fondo oscuro tipo pared de banco */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            font-family: 'Courier New', Courier, monospace;
+            /* Fuente tipo terminal */
+        }
+
+        #cajero {
+            background-color: #95a5a6;
+            /* Color metálico del cajero */
+            padding: 30px;
+            border-radius: 15px;
+            border: 5px solid #7f8c8d;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 400px;
+        }
+
+        .pantalla {
+            background-color: #27ae60;
+            /* Pantalla verde retro */
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            border: 3px solid #1e8449;
+            margin-bottom: 20px;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        input {
+            display: block;
+            width: 90%;
+            margin: 10px auto;
+            padding: 10px;
+            border: 2px solid #1e8449;
+            background-color: #e8f8f5;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        button {
+            background-color: #f1c40f;
+            /* Botón amarillo brillante */
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 5px #c0392b;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        button:active {
+            box-shadow: 0 2px #c0392b;
+            transform: translateY(3px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .info-tablero {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-align: left;
+            border-bottom: 2px dashed #1e8449;
+            padding-bottom: 10px;
+        }
+
+        .transfer-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px dashed #1e8449;
+        }
+
+        .market-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 4px solid #f1c40f;
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .price-up {
+            color: #2ecc71;
+        }
+
+        .price-down {
+            color: #e74c3c;
+        }
+
+        /* ESTILOS ADMIN */
+        #pantalla-admin {
+            background-color: #8e44ad;
+            /* Morado Admin */
+            border-color: #9b59b6;
+            width: 500px;
+            /* Más ancho para la tabla */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        th,
+        td {
+            padding: 5px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+        }
+
+        .btn-mini {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            margin: 2px;
+        }
+
+        /* HISTORIAL */
+        #historial-container {
+            margin-top: 15px;
+            text-align: left;
+            border-top: 2px dashed #1e8449;
+            padding-top: 10px;
+        }
+
+        #listaMovimientos {
+            list-style: none;
+            padding: 0;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .mov-item {
+            padding: 5px;
+            font-size: 0.8rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .mov-positivo {
+            color: #2ecc71;
+        }
+
+        .mov-negativo {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="cajero">
+        <!-- PANTALLA 0: CONFIGURACIÓN FIREBASE (Si falta) -->
+        <div class="pantalla hidden" id="pantalla-config">
+            <h1>⚙️ CONFIGURACIÓN</h1>
+            <p>Necesitamos conectar con la Nube (Firebase).</p>
+            <p style="font-size: 0.8rem;">Pega tu configuración aquí abajo en el código o pide ayuda para generarla.</p>
+        </div>
+
+        <!-- PANTALLA 1: REGISTRO -->
+        <div class="pantalla hidden" id="pantalla-registro">
+            <h1>🏦 BANCO GAMER 🏦</h1>
+            <p>¡Bienvenida! Crea tu cuenta en la nube.</p>
+            <input type="text" id="regNombre" placeholder="Tu Nombre de Jugadora">
+            <input type="number" id="regPin" placeholder="Crea un PIN (4 dígitos)">
+            <input type="number" id="regMonto" placeholder="Monto Inicial (Monedas)">
+            <button onclick="crearCuenta()" style="margin-top: 10px; width: 100%;">CREAR CUENTA ►</button>
+            <p style="font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;"
+                onclick="mostrarPantalla('pantalla-login')">¿Ya tienes cuenta? Inicia Sesión</p>
+        </div>
+
+        <!-- PANTALLA 2: LOGIN -->
+        <div class="pantalla hidden" id="pantalla-login">
+            <h1>🔐 INICIAR SESIÓN</h1>
+            <p>Conéctate a tu cuenta.</p>
+            <input type="text" id="loginNombre" placeholder="Tu Nombre">
+            <input type="number" id="loginPin" placeholder="Tu PIN">
+            <div id="loadingLogin" class="hidden">⌛ Buscando en la nube...</div>
+            <button onclick="iniciarSesion()" style="margin-top: 10px; width: 100%;">ENTRAR ►</button>
+            <p style="font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;"
+                onclick="mostrarPantalla('pantalla-registro')">¿No tienes cuenta? Regístrate</p>
+        </div>
+
+        <!-- PANTALLA 3: DASHBOARD CAJERO -->
+        <div class="pantalla hidden" id="pantalla-cajero">
+            <div class="info-tablero">
+                <p>Hola, <span id="nombreUsuarioDisplay">---</span></p>
+                <p>Saldo: 💰 <span id="saldoDisplay">---</span></p>
+            </div>
+
+            <!-- Operaciones Propias -->
+            <input type="number" id="montoTransaccion" placeholder="Cantidad para mí...">
+            <div style="display: flex; gap: 10px; justify-content: space-between; margin-top: 5px;">
+                <button onclick="depositar()"
+                    style="flex: 1; background-color: #2ecc71; font-size: 14px; padding: 10px;">DEPOSITAR</button>
+                <button onclick="retirar()"
+                    style="flex: 1; background-color: #e74c3c; font-size: 14px; padding: 10px;">RETIRAR</button>
+            </div>
+
+            <!-- Transferencias -->
+            <div class="transfer-section">
+                <p style="margin:0 0 5px 0; font-weight:bold;">💸 ENVIAR DINERO A:</p>
+                <input type="text" id="destinatarioNombre" placeholder="Nombre completo del amigo">
+                <input type="number" id="montoTransferencia" placeholder="Cantidad a enviar">
+                <button onclick="transferirDinero()"
+                    style="width: 100%; background-color: #3498db; font-size: 14px; padding: 10px; margin-top:0;">ENVIAR
+                    AHORA ►</button>
+            </div>
+
+            <!-- MERCADO CRIPTO -->
+            <div class="market-section">
+                <p style="margin:0; font-weight:bold; color: #f1c40f;">📈 MERCADO GAMER</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
+                    <div style="text-align: left;">
+                        <span style="font-size: 0.8rem;">Precio Coin:</span><br>
+                        <span id="txtPrecioMercado" style="font-size: 1.5rem; font-weight: bold;">---</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.8rem;">Tus Coins:</span><br>
+                        <span id="txtMisCriptos" style="font-size: 1.5rem; font-weight: bold; color: #3498db;">0</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="comprarCripto()"
+                        style="flex: 1; font-size: 0.8rem; padding: 8px; background: #27ae60;">COMPRAR (1)</button>
+                    <button onclick="venderCripto()"
+                        style="flex: 1; font-size: 0.8rem; padding: 8px; background: #c0392b;">VENDER (1)</button>
+                </div>
+            </div>
+
+            <!-- HISTORIAL -->
+            <div id="historial-container">
+                <p style="margin:0 0 5px 0; font-weight:bold;">📜 HISTORIAL</p>
+                <ul id="listaMovimientos">
+                    <!-- Items aquí -->
+                </ul>
+            </div>
+
+            <button onclick="cerrarSesion()"
+                style="margin-top: 20px; width: 100%; background-color: #95a5a6; font-size: 0.9rem; padding: 10px;">CERRAR
+                SESIÓN</button>
+        </div>
+
+        <!-- PANTALLA 4: ADMIN -->
+        <div class="pantalla hidden" id="pantalla-admin">
+            <h1>👑 MODO PRO / ADMIN 👑</h1>
+            <p>Panel de Control Supremo</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table id="tablaAdmin">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>PIN</th>
+                            <th>Saldo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listaUsuariosAdmin">
+                        <!-- Aquí se llenan los usuarios -->
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="cerrarSesion()" style="margin-top: 20px; width: 100%; background-color: #95a5a6;">SALIR DEL
+                MODO PRO</button>
+        </div>
+
+        <div class="teclado"></div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN DE FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyApoYon1F85j5A8Olu1mlu4zmZKHwXof5M",
+            authDomain: "cajero-app-gamer-12345.firebaseapp.com",
+            projectId: "cajero-app-gamer-12345",
+            storageBucket: "cajero-app-gamer-12345.firebasestorage.app",
+            messagingSenderId: "608695622951",
+            appId: "1:608695622951:web:4f31e9953519f58e00dd02",
+            // IMPORTANTE: Esta URL la deducimos del ID del proyecto. 
+            // Si falla, verifica en la consola de Firebase -> Realtime Database.
+            databaseURL: "https://cajero-app-gamer-12345-default-rtdb.firebaseio.com"
+        };
+
+        // Inicializar Firebase
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            console.log("Firebase inicializado correctamente");
+        } catch (error) {
+            console.error("Error inicializando Firebase:", error);
+            alert("⚠️ Error: No se pudo conectar a Firebase. Revisa la configuración en el código.");
+        }
+
+        // --- CREDENCIALES ADMIN ---
+        const ADMIN_USER = "la pro XD";
+        const ADMIN_PIN = "2015";
+
+        // --- ESTADO LOCAL ---
+        let usuarioActualNombre = null; // Solo guardamos el nombre, el saldo viene en vivo
+        let precioActual = 10; // Precio base local por si acaso
+
+        // --- INICIALIZACIÓN ---
+        window.onload = function () {
+            // Verificar si recordamos al usuario
+            const nombreGuardado = localStorage.getItem('bancoGamerUltimoUsuario');
+            if (nombreGuardado) {
+                document.getElementById('loginNombre').value = nombreGuardado;
+                mostrarPantalla('pantalla-login');
+            } else {
+                mostrarPantalla('pantalla-registro');
+            }
+        };
+
+        function mostrarPantalla(idPantalla) {
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.add('hidden'));
+            document.getElementById(idPantalla).classList.remove('hidden');
+        }
+
+        // --- LÓGICA DE NEGOCIO (NUBE) ---
+
+        // Helper para normalizar nombres (evitar problemas con mayúsculas/espacios en claves)
+        // Ejemplo: "Ali Code" -> "alicode"
+        function limpiarNombre(nombre) {
+            return nombre.toLowerCase().replace(/\s/g, '');
+        }
+
+        function crearCuenta() {
+            const nombre = document.getElementById('regNombre').value.trim();
+            const pin = document.getElementById('regPin').value;
+            const monto = parseFloat(document.getElementById('regMonto').value);
+
+            if (nombre === "" || pin.length !== 4 || isNaN(monto)) {
+                alert("⚠️ Datos inválidos. Revisa todos los campos.");
+                return;
+            }
+
+            const idUsuario = limpiarNombre(nombre);
+
+            // Verificar si ya existe
+            db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
+                if (snapshot.exists()) {
+                    alert("⛔ El usuario '" + nombre + "' ya existe. Por favor elige otro o inicia sesión.");
+                } else {
+                    // Crear usuario
+                    db.ref('usuarios/' + idUsuario).set({
+                        nombreReal: nombre,
+                        pin: pin,
+                        saldo: monto
+                    }, (error) => {
+                        if (error) {
+                            alert("Error al guardar: " + error.message);
+                        } else {
+                            alert("¡Cuenta creada en Nube! Ahora inicia sesión.");
+                            mostrarPantalla('pantalla-login');
+                        }
+                    });
+                }
+            });
+        }
+
+        function iniciarSesion() {
+            const nombre = document.getElementById('loginNombre').value.trim();
+            const pin = document.getElementById('loginPin').value;
+            const loading = document.getElementById('loadingLogin');
+
+            if (nombre === "" || pin === "") return;
+
+            // --- CHECK ADMIN ---
+            if (nombre.toLowerCase() === ADMIN_USER.toLowerCase() && pin === ADMIN_PIN) {
+                entrarComoAdmin();
+                return;
+            }
+
+            loading.classList.remove('hidden');
+            const idUsuario = limpiarNombre(nombre);
+
+            db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
+                loading.classList.add('hidden');
+                if (snapshot.exists()) {
+                    const datos = snapshot.val();
+                    if (datos.pin === pin) {
+                        // Login exitoso
+                        usuarioActualNombre = nombre; // Guardamos el nombre original display
+                        localStorage.setItem('bancoGamerUltimoUsuario', nombre);
+                        entrarAlCajero(idUsuario, datos);
+                    } else {
+                        alert("⛔ PIN incorrecto.");
+                    }
+                } else {
+                    alert("⛔ Usuario no encontrado. Regístrate primero.");
+                }
+            }).catch((error) => {
+                loading.classList.add('hidden');
+                alert("Error de conexión: " + error.message);
+            });
+        }
+
+        function entrarAlCajero(idUsuario, datosIniciales) {
+            mostrarPantalla('pantalla-cajero');
+
+            // ESCUCHAR CAMBIOS EN VIVO (Listener)
+            // Esto es lo que hace que si te mandan dinero, se actualice solo
+            db.ref('usuarios/' + idUsuario).on('value', (snapshot) => {
+                const datos = snapshot.val();
+                if (datos) {
+                    document.getElementById('nombreUsuarioDisplay').textContent = datos.nombreReal;
+                    document.getElementById('saldoDisplay').textContent = datos.saldo.toFixed(2);
+                    // Actualizar mis criptos (si no existe campo, es 0)
+                    const misCriptos = datos.criptomonedas || 0;
+                    document.getElementById('txtMisCriptos').textContent = misCriptos;
+                }
+            });
+
+            // ESCUCHAR HISTORIAL
+            cargarHistorial(idUsuario);
+
+            // INICIAR EL MERCADO
+            iniciarMercado();
+        }
+
+        // --- HISTORIAL ---
+        function registrarMovimiento(idUsuario, tipo, monto, detalle, positivo) {
+            db.ref('usuarios/' + idUsuario + '/movimientos').push({
+                tipo: tipo,
+                monto: monto,
+                detalle: detalle,
+                positivo: positivo, // true = verde, false = rojo
+                fecha: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function cargarHistorial(idUsuario) {
+            const ul = document.getElementById('listaMovimientos');
+            ul.innerHTML = ''; // Limpiar al inicio
+
+            // Escuchar nuevos movimientos (child_added trae los existentes y nuevos uno por uno)
+            db.ref('usuarios/' + idUsuario + '/movimientos').limitToLast(20).on('child_added', (snapshot) => {
+                const mov = snapshot.val();
+                const li = document.createElement('li');
+                li.className = 'mov-item';
+
+                const signo = mov.positivo ? '+' : '-';
+                const claseColor = mov.positivo ? 'mov-positivo' : 'mov-negativo';
+
+                li.innerHTML = `
+                    <span>${mov.detalle}</span>
+                    <span class="${claseColor}" style="font-weight:bold;">${signo}$${mov.monto}</span>
+                `;
+                // Insertar al principio para ver el más nuevo arriba
+                ul.insertBefore(li, ul.firstChild);
+            });
+        }
+
+        // --- LÓGICA DE MERCADO (CRIPTO) ---
+        function iniciarMercado() {
+            const mercadoRef = db.ref('mercado');
+
+            // Escuchar cambios de precio
+            mercadoRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    actualizarDisplayPrecio(data.precio);
+                    precioActual = data.precio;
+
+                    // Si el precio es muy viejo (>10 seg), yo calculo uno nuevo (Simulación Serverless)
+                    const ahora = Date.now();
+                    if (ahora - data.ultimaActualizacion > 10000) {
+                        calcularNuevoPrecio(data.precio);
+                    }
+                } else {
+                    // Si no existe mercado, lo creo
+                    calcularNuevoPrecio(10);
+                }
+            });
+        }
+
+        function calcularNuevoPrecio(precioAnterior) {
+            // Variación aleatoria entre -5% y +5%
+            const variacion = (Math.random() * 0.10) - 0.05;
+            let nuevoPrecio = precioAnterior * (1 + variacion);
+
+            // Límites para que no se rompa el juego
+            if (nuevoPrecio < 1) nuevoPrecio = 1;
+            if (nuevoPrecio > 100) nuevoPrecio = 100;
+
+            db.ref('mercado').set({
+                precio: nuevoPrecio,
+                ultimaActualizacion: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function actualizarDisplayPrecio(precio) {
+            const el = document.getElementById('txtPrecioMercado');
+            const precioFix = precio.toFixed(2);
+            el.textContent = "$" + precioFix;
+
+            // Color visual (simple)
+            // Podríamos comparar con el anterior para saber si subió o bajó, 
+            // pero por simplicidad solo lo mostramos.
+        }
+
+        function comprarCripto() {
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            const costo = precioActual;
+
+            db.ref('usuarios/' + idUsuario).transaction((user) => {
+                if (user) {
+                    if (user.saldo >= costo) {
+                        user.saldo -= costo;
+                        user.criptomonedas = (user.criptomonedas || 0) + 1;
+                        return user; // Éxito
+                    }
+                }
+                return; // Abortar si no hay saldo
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    registrarMovimiento(idUsuario, "COMPRA", costo, "Compra Cripto", false);
+                } else {
+                    alert("No tienes saldo suficiente :(");
+                }
+            });
+        }
+
+        function venderCripto() {
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            const ganancia = precioActual;
+
+            db.ref('usuarios/' + idUsuario).transaction((user) => {
+                if (user) {
+                    if ((user.criptomonedas || 0) > 0) {
+                        user.saldo += ganancia;
+                        user.criptomonedas -= 1;
+                        return user; // Éxito
+                    }
+                }
+                return; // Abortar
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    registrarMovimiento(idUsuario, "VENTA", ganancia, "Venta Cripto", true);
+                } else {
+                    alert("No tienes Coins para vender.");
+                }
+            });
+        }
+
+        function entrarComoAdmin() {
+            mostrarPantalla('pantalla-admin');
+            cargarListaAdmin();
+        }
+
+        function cargarListaAdmin() {
+            const tbody = document.getElementById('listaUsuariosAdmin');
+            tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+
+            db.ref('usuarios').on('value', (snapshot) => {
+                tbody.innerHTML = ''; // Limpiar
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = '<tr><td colspan="4">No hay usuarios</td></tr>';
+                    return;
+                }
+
+                snapshot.forEach((childSnapshot) => {
+                    const id = childSnapshot.key;
+                    const u = childSnapshot.val();
+
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
+                        <td>${u.nombreReal}</td>
+                        <td style="color: #f1c40f;">${u.pin}</td>
+                        <td>$${u.saldo}</td>
+                        <td>
+                            <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 100)">+100</button>
+                            <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -100)">-100</button>
+                        </td>
+                    `;
+                    tbody.appendChild(fila);
+                });
+            });
+        }
+
+        function adminModificarSaldo(idUsuario, cantidad) {
+            db.ref('usuarios/' + idUsuario + '/saldo').transaction((saldoActual) => {
+                return (saldoActual || 0) + cantidad;
+            });
+        }
+
+        function cerrarSesion() {
+            // Dejar de escuchar cambios
+            if (usuarioActualNombre) {
+                const idUsuario = limpiarNombre(usuarioActualNombre);
+                db.ref('usuarios/' + idUsuario).off();
+            }
+            // Dejar de escuchar cambios de admin
+            db.ref('usuarios').off();
+            usuarioActualNombre = null;
+            mostrarPantalla('pantalla-login');
+        }
+
+        // --- TRANSACCIONES ---
+
+        function actualizarSaldoNube(nuevoSaldo) {
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario).update({
+                saldo: nuevoSaldo
+            });
+        }
+
+        // Para depositar y retirar necesitamos leer el saldo actual primero (o usar transaction de firebase)
+        // Usaremos transaction para seguridad atómica
+        function depositar() {
+            const monto = parseFloat(document.getElementById('montoTransaccion').value);
+            if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
+
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario + '/saldo').transaction((saldoActual) => {
+                return (saldoActual || 0) + monto;
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    alert(`Has depositado ${monto}. Nuevo saldo: ${snapshot.val()}`);
+                    registrarMovimiento(idUsuario, "DEPOSITO", monto, "Depósito Cajero", true);
+                    document.getElementById('montoTransaccion').value = '';
+                }
+            });
+        }
+
+        function retirar() {
+            const monto = parseFloat(document.getElementById('montoTransaccion').value);
+            if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
+
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario + '/saldo').transaction((saldoActual) => {
+                if ((saldoActual || 0) < monto) {
+                    // Abortar transacción si no hay saldo
+                    return; // Retorna undefined para abortar
+                }
+                return saldoActual - monto;
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    alert(`Has retirado ${monto}. Nuevo saldo: ${snapshot.val()}`);
+                    registrarMovimiento(idUsuario, "RETIRO", monto, "Retiro Cajero", false);
+                    document.getElementById('montoTransaccion').value = '';
+                } else {
+                    alert("❌ Fondos insuficientes o error de conexión.");
+                }
+            });
+        }
+
+        // --- TRANSFERENCIA ENTRE USUARIOS ---
+
+        function transferirDinero() {
+            const destinatarioNombre = document.getElementById('destinatarioNombre').value.trim();
+            const monto = parseFloat(document.getElementById('montoTransferencia').value);
+
+            if (destinatarioNombre === "" || isNaN(monto) || monto <= 0) {
+                alert("Revisa el nombre del destinatario y el monto.");
+                return;
+            }
+
+            if (limpiarNombre(destinatarioNombre) === limpiarNombre(usuarioActualNombre)) {
+                alert("No puedes transferirte a ti misma aquí. Usa Depositar.");
+                return;
+            }
+
+            const miId = limpiarNombre(usuarioActualNombre);
+            const destId = limpiarNombre(destinatarioNombre);
+
+            // Pasos para transferencia segura:
+            // 1. Verificar que destinatario existe.
+            // 2. Verificar que tengo saldo.
+            // 3. Restar mi saldo.
+            // 4. Sumar al destinatario.
+
+            db.ref('usuarios/' + destId).once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("⛔ El usuario destinatario '" + destinatarioNombre + "' NO existe.");
+                    return;
+                }
+
+                // Ejecutar transferencia
+                // Primero me resto a mí
+                db.ref('usuarios/' + miId + '/saldo').transaction((miSaldo) => {
+                    if ((miSaldo || 0) < monto) return; // Abortar
+                    return miSaldo - monto;
+                }, (error, committed, snapshot) => {
+                    if (committed) {
+                        // Si se me descontó con éxito, ahora le sumo al otro
+                        db.ref('usuarios/' + destId + '/saldo').transaction((otroSaldo) => {
+                            return (otroSaldo || 0) + monto;
+                        });
+
+                        // Registrar historial para AMBOS
+                        registrarMovimiento(miId, "ENVIO", monto, "Envío a " + destinatarioNombre, false);
+                        registrarMovimiento(destId, "RECIBO", monto, "Recibido de " + usuarioActualNombre, true);
+
+                        alert(`✅ ¡Transferencia exitosa! Enviaste ${monto} a ${destinatarioNombre}.`);
+                        document.getElementById('destinatarioNombre').value = '';
+                        document.getElementById('montoTransferencia').value = '';
+                    } else {
+                        alert("❌ Fondos insuficientes.");
+                    }
+                });
+            });
+        }
+
+    </script>
+
+</body>
+
+</html>
