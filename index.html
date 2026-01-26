@@ -976,11 +976,19 @@
 
                     const fila = document.createElement('tr');
                     // Formatear saldo correctamente
-                    const saldoFormateado = typeof u.saldo === 'number' ? u.saldo.toFixed(2) : parseFloat(u.saldo || 0).toFixed(2);
+                    const saldoNumerico = typeof u.saldo === 'number' ? u.saldo : parseFloat(u.saldo || 0);
+                    const saldoFormateado = saldoNumerico.toFixed(2);
+
+                    // Truncar si es muy largo (máximo 12 caracteres incluyendo $)
+                    let saldoDisplay = saldoFormateado;
+                    if (saldoFormateado.length > 11) {
+                        saldoDisplay = saldoFormateado.substring(0, 11) + '...';
+                    }
+
                     fila.innerHTML = `
                         <td title="${u.nombreReal}">${u.nombreReal}</td>
                         <td style="color: #f1c40f;">${u.pin}</td>
-                        <td style="font-family: monospace;" title="$${saldoFormateado}">$${saldoFormateado}</td>
+                        <td style="font-family: monospace;" title="Saldo completo: $${saldoFormateado}">$${saldoDisplay}</td>
                         <td>
                             <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 100)">+100</button>
                             <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -100)">-100</button>
