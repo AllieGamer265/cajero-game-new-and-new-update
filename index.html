@@ -127,7 +127,7 @@
             background-color: #8e44ad;
             /* Morado Admin */
             border-color: #9b59b6;
-            width: 600px;
+            width: 580px;
             /* Más ancho para la tabla */
         }
 
@@ -141,10 +141,10 @@
 
         th,
         td {
-            padding: 8px 5px;
+            padding: 6px 4px;
             text-align: left;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -184,12 +184,13 @@
             font-weight: bold;
             background: rgba(0, 0, 0, 0.3);
             text-transform: uppercase;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
+            padding: 8px 4px;
         }
 
         .btn-mini {
-            padding: 5px 8px;
-            font-size: 0.75rem;
+            padding: 4px 7px;
+            font-size: 0.7rem;
             margin: 1px;
         }
 
@@ -472,25 +473,24 @@
 
     <!-- PANTALLA 4: ADMIN -->
     <div class="pantalla hidden" id="pantalla-admin">
-        <h1>👑 MODO PRO / ADMIN 👑</h1>
-        <p>Panel de Control Supremo</p>
-        <div style="max-height: 400px; overflow-y: auto;">
-            <table id="tablaAdmin">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>PIN</th>
-                        <th>Saldo</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="listaUsuariosAdmin">
-                    <!-- Aquí se llenan los usuarios -->
-                </tbody>
-            </table>
-        </div>
-        <button onclick="cerrarSesion()" style="margin-top: 20px; width: 100%; background-color: #95a5a6;">SALIR DEL
-            MODO PRO</button>
+        <h1 style="margin: 0 0 10px 0; font-size: 1.3rem;">👑 MODO PRO / ADMIN 👑</h1>
+        <p style="margin: 0 0 15px 0; font-size: 0.85rem;">Panel de Control Supremo</p>
+        <table id="tablaAdmin">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>PIN</th>
+                    <th>Saldo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="listaUsuariosAdmin">
+                <!-- Aquí se llenan los usuarios -->
+            </tbody>
+        </table>
+        <button onclick="cerrarSesion()"
+            style="margin-top: 15px; width: 100%; background-color: #95a5a6; font-size: 0.85rem; padding: 10px;">SALIR
+            DEL MODO PRO</button>
     </div>
 
     <div class="teclado"></div>
@@ -979,10 +979,10 @@
                     const saldoNumerico = typeof u.saldo === 'number' ? u.saldo : parseFloat(u.saldo || 0);
                     const saldoFormateado = saldoNumerico.toFixed(2);
 
-                    // Truncar si es muy largo (máximo 12 caracteres incluyendo $)
+                    // Truncar si es muy largo (máximo 9 caracteres + $ = 10 total)
                     let saldoDisplay = saldoFormateado;
-                    if (saldoFormateado.length > 11) {
-                        saldoDisplay = saldoFormateado.substring(0, 11) + '...';
+                    if (saldoFormateado.length > 9) {
+                        saldoDisplay = saldoFormateado.substring(0, 9) + '...';
                     }
 
                     fila.innerHTML = `
