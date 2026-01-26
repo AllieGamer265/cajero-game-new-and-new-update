@@ -184,6 +184,83 @@
         .mov-negativo {
             color: #e74c3c;
         }
+
+        /* CASINO STYLES */
+        #pantalla-casino {
+            background-color: #c0392b;
+            /* Rojo Casino */
+            border-color: #e74c3c;
+        }
+
+        .slot-machine {
+            background: #f1c40f;
+            padding: 20px;
+            border-radius: 10px;
+            border: 5px solid #d35400;
+            margin: 20px 0;
+            display: flex;
+            justify-content: space-around;
+            font-size: 3rem;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .slot-reel {
+            background: whitesmoke;
+            border: 3px solid #333;
+            border-radius: 5px;
+            width: 60px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* RANKING STYLES */
+        #pantalla-ranking {
+            background-color: #34495e;
+            border-color: #2c3e50;
+        }
+
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        .rank-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rank-pos {
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        .rank-1 {
+            background: linear-gradient(90deg, #f1c40f, #f39c12);
+            color: black;
+            border: 2px solid #fff;
+        }
+
+        .rank-2 {
+            background: linear-gradient(90deg, #bdc3c7, #95a5a6);
+            color: black;
+            border: 2px solid #fff;
+        }
+
+        .rank-3 {
+            background: linear-gradient(90deg, #d35400, #e67e22);
+            color: white;
+            border: 2px solid #fff;
+        }
     </style>
 </head>
 
@@ -203,7 +280,8 @@
             <p>¡Bienvenida! Crea tu cuenta en la nube.</p>
             <input type="text" id="regNombre" placeholder="Tu Nombre de Jugadora">
             <input type="number" id="regPin" placeholder="Crea un PIN (4 dígitos)">
-            <input type="number" id="regMonto" placeholder="Monto Inicial (Monedas)">
+            <!-- <input type="number" id="regMonto" placeholder="Monto Inicial (Monedas)"> -->
+            <p style="color: #27ae60; font-weight: bold;">💰 Bono de Bienvenida: $1,000</p>
             <button onclick="crearCuenta()" style="margin-top: 10px; width: 100%;">CREAR CUENTA ►</button>
             <p style="font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;"
                 onclick="mostrarPantalla('pantalla-login')">¿Ya tienes cuenta? Inicia Sesión</p>
@@ -266,6 +344,19 @@
                     <button onclick="venderCripto()"
                         style="flex: 1; font-size: 0.8rem; padding: 8px; background: #c0392b;">VENDER (1)</button>
                 </div>
+
+                <!-- CASINO BUTTON -->
+                <!-- CASINO & RANKING BUTTONS -->
+                <div style="display: flex; gap: 5px; margin-top: 15px;">
+                    <button onclick="abrirCasino()"
+                        style="flex: 1; background: linear-gradient(45deg, #e67e22, #d35400); color: white; border: 2px solid #f39c12; font-size: 0.9rem; padding: 10px;">
+                        🎰 CASINO
+                    </button>
+                    <button onclick="verRanking()"
+                        style="flex: 1; background: linear-gradient(45deg, #f1c40f, #f39c12); color: white; border: 2px solid #fff; font-size: 0.9rem; padding: 10px;">
+                        🏆 RANKING
+                    </button>
+                </div>
             </div>
 
             <!-- HISTORIAL -->
@@ -281,30 +372,87 @@
                 SESIÓN</button>
         </div>
 
-        <!-- PANTALLA 4: ADMIN -->
-        <div class="pantalla hidden" id="pantalla-admin">
-            <h1>👑 MODO PRO / ADMIN 👑</h1>
-            <p>Panel de Control Supremo</p>
-            <div style="max-height: 400px; overflow-y: auto;">
-                <table id="tablaAdmin">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>PIN</th>
-                            <th>Saldo</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="listaUsuariosAdmin">
-                        <!-- Aquí se llenan los usuarios -->
-                    </tbody>
-                </table>
+        <!-- PANTALLA 5: CASINO -->
+        <div class="pantalla hidden" id="pantalla-casino">
+            <h1>🎰 CASINO GAMER 🎰</h1>
+            <p>¡Prueba tu suerte! (x10 Jackpot)</p>
+
+            <div class="info-tablero" style="border-bottom: none; margin-bottom: 5px;">
+                <p>Saldo: 💰 <span id="saldoCasinoDisplay">---</span></p>
             </div>
-            <button onclick="cerrarSesion()" style="margin-top: 20px; width: 100%; background-color: #95a5a6;">SALIR DEL
-                MODO PRO</button>
+
+            <div class="slot-machine">
+                <div class="slot-reel" id="reel1">🍒</div>
+                <div class="slot-reel" id="reel2">7️⃣</div>
+                <div class="slot-reel" id="reel3">💎</div>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px;">
+                <p style="margin: 0 0 5px 0;">Tu Apuesta:</p>
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button onclick="fijarApuesta(10)" class="btn-mini" style="background: #34495e;">$10</button>
+                    <button onclick="fijarApuesta(50)" class="btn-mini" style="background: #34495e;">$50</button>
+                    <button onclick="fijarApuesta(100)" class="btn-mini" style="background: #34495e;">$100</button>
+                </div>
+                <input type="number" id="montoApuesta" value="10" min="1"
+                    style="width: 50%; text-align: center; margin-top: 5px;">
+            </div>
+
+            <button onclick="jugarCasino()" id="btnSpin"
+                style="margin-top: 15px; width: 100%; background-color: #27ae60; font-size: 1.2rem;">
+                GIRAR (SPIN) 🎲
+            </button>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')"
+                style="margin-top: 10px; width: 100%; background-color: #7f8c8d; font-size: 0.9rem;">
+                Volver al Banco
+            </button>
         </div>
 
-        <div class="teclado"></div>
+    </div>
+
+    <!-- PANTALLA RANKING -->
+    <div class="pantalla hidden" id="pantalla-ranking">
+        <h1>🏆 TOP MILLONARIOS 🏆</h1>
+        <p>¿Quién domina el servidor?</p>
+
+        <div style="max-height: 400px; overflow-y: auto;">
+            <ul class="ranking-list" id="listaRanking">
+                <!-- Items JS -->
+                <li>Cargando...</li>
+            </ul>
+        </div>
+
+        <button onclick="mostrarPantalla('pantalla-cajero')"
+            style="margin-top: 20px; width: 100%; background-color: #7f8c8d;">
+            VOLVER AL BANCO
+        </button>
+    </div>
+
+    <!-- PANTALLA 4: ADMIN -->
+    <div class="pantalla hidden" id="pantalla-admin">
+        <h1>👑 MODO PRO / ADMIN 👑</h1>
+        <p>Panel de Control Supremo</p>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table id="tablaAdmin">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>PIN</th>
+                        <th>Saldo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="listaUsuariosAdmin">
+                    <!-- Aquí se llenan los usuarios -->
+                </tbody>
+            </table>
+        </div>
+        <button onclick="cerrarSesion()" style="margin-top: 20px; width: 100%; background-color: #95a5a6;">SALIR DEL
+            MODO PRO</button>
+    </div>
+
+    <div class="teclado"></div>
     </div>
 
     <script>
@@ -368,9 +516,10 @@
         function crearCuenta() {
             const nombre = document.getElementById('regNombre').value.trim();
             const pin = document.getElementById('regPin').value;
-            const monto = parseFloat(document.getElementById('regMonto').value);
+            // const monto = parseFloat(document.getElementById('regMonto').value);
+            const monto = 1000; // TODOS EMPIEZAN IGUAL PARA SER JUSTOS
 
-            if (nombre === "" || pin.length !== 4 || isNaN(monto)) {
+            if (nombre === "" || pin.length !== 4) {
                 alert("⚠️ Datos inválidos. Revisa todos los campos.");
                 return;
             }
@@ -584,6 +733,186 @@
             });
         }
 
+        // --- LÓGICA CASINO ---
+        function abrirCasino() {
+            // Actualizar saldo visual al entrar
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+                document.getElementById('saldoCasinoDisplay').textContent = (snap.val() || 0).toFixed(2);
+            });
+            mostrarPantalla('pantalla-casino');
+        }
+
+        function fijarApuesta(cantidad) {
+            document.getElementById('montoApuesta').value = cantidad;
+        }
+
+        function jugarCasino() {
+            const apuesta = parseFloat(document.getElementById('montoApuesta').value);
+            const btn = document.getElementById('btnSpin');
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+
+            if (isNaN(apuesta) || apuesta <= 0) return alert("Apuesta inválida");
+
+            // Bloquear botón para no spamear
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            btn.textContent = "GIRANDO... 🎰";
+
+            db.ref('usuarios/' + idUsuario).transaction((user) => {
+                if (user) {
+                    if (user.saldo >= apuesta) {
+                        user.saldo -= apuesta; // Cobrar entrada
+                        return user;
+                    }
+                }
+                return; // Abortar sin saldo
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    // Animación visual
+                    animarSlots(() => {
+                        // Calcular resultado DESPUÉS de la animación
+                        const resultado = calcularResultadoSlots();
+                        let premio = 0;
+                        let mensaje = "Perdiste :(";
+                        let tipoMov = "CASINO LOSS";
+
+                        if (resultado.tipo === "JACKPOT") {
+                            premio = apuesta * 10;
+                            mensaje = "¡JACKPOT! x10 🤑";
+                            tipoMov = "CASINO WIN";
+                        } else if (resultado.tipo === "PAR") {
+                            premio = apuesta * 2;
+                            mensaje = "¡PAR! x2 😊";
+                            tipoMov = "CASINO WIN";
+                        }
+
+                        // Dar premio si hubo
+                        if (premio > 0) {
+                            db.ref('usuarios/' + idUsuario + '/saldo').transaction(saldo => (saldo || 0) + premio);
+                        }
+
+                        // Registrar historial
+                        const balanceTotal = premio - apuesta; // Profit neto
+                        registrarMovimiento(idUsuario, tipoMov, Math.abs(balanceTotal), mensaje + " (Bet " + apuesta + ")", balanceTotal > 0);
+
+                        // Actualizar UI y desbloquear
+                        alert(mensaje + "\n" + (premio > 0 ? "Ganaste $" + premio : "Suerte la próxima."));
+
+                        // Actualizar saldo visual rápido
+                        db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+                            document.getElementById('saldoCasinoDisplay').textContent = (snap.val() || 0).toFixed(2);
+                        });
+
+                        btn.disabled = false;
+                        btn.style.opacity = "1";
+                        btn.textContent = "GIRAR (SPIN) 🎲";
+                    });
+                } else {
+                    alert("No tienes saldo suficiente para esa apuesta.");
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                    btn.textContent = "GIRAR (SPIN) 🎲";
+                }
+            });
+        }
+
+        const slotEmojis = ["🍒", "7️⃣", "💎", "🍋", "🔔"];
+
+        function animarSlots(callback) {
+            let contador = 0;
+            const maxVueltas = 20;
+            const intervalo = setInterval(() => {
+                // Cambiar emojis random visualmente
+                document.getElementById('reel1').textContent = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+                document.getElementById('reel2').textContent = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+                document.getElementById('reel3').textContent = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+
+                contador++;
+                if (contador >= maxVueltas) {
+                    clearInterval(intervalo);
+                    callback();
+                }
+            }, 50); // Velocidad de giro
+        }
+
+        function calcularResultadoSlots() {
+            // Generar resultado final REAL
+            const r1 = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+            const r2 = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+            const r3 = slotEmojis[Math.floor(Math.random() * slotEmojis.length)];
+
+            // Mostrar el resultado final fijo
+            document.getElementById('reel1').textContent = r1;
+            document.getElementById('reel2').textContent = r2;
+            document.getElementById('reel3').textContent = r3;
+
+            if (r1 === r2 && r2 === r3) {
+                return { tipo: "JACKPOT" };
+            } else if (r1 === r2 || r1 === r3 || r2 === r3) {
+                return { tipo: "PAR" };
+            } else {
+                return { tipo: "NADA" };
+            }
+        }
+
+
+
+        // --- RANKING ---
+        function verRanking() {
+            mostrarPantalla('pantalla-ranking');
+            const lista = document.getElementById('listaRanking');
+            lista.innerHTML = '<li style="text-align:center;">Cargando cracks...</li>';
+
+            db.ref('usuarios').once('value').then(snapshot => {
+                if (!snapshot.exists()) {
+                    lista.innerHTML = '<li>Nadie juega :(</li>';
+                    return;
+                }
+
+                // Convertir Objeto a Array para poder ordenar
+                const usuariosArray = [];
+                snapshot.forEach(child => {
+                    const u = child.val();
+                    usuariosArray.push({
+                        nombre: u.nombreReal,
+                        saldo: u.saldo || 0
+                    });
+                });
+
+                // Ordenar: Mayor a menor saldo
+                usuariosArray.sort((a, b) => b.saldo - a.saldo);
+
+                // Tomar Top 10
+                const top10 = usuariosArray.slice(0, 10);
+
+                // Renderizar
+                lista.innerHTML = '';
+                top10.forEach((user, index) => {
+                    const pos = index + 1;
+                    let claseExtra = '';
+                    let icono = '#' + pos;
+
+                    if (pos === 1) { claseExtra = 'rank-1'; icono = '🥇'; }
+                    if (pos === 2) { claseExtra = 'rank-2'; icono = '🥈'; }
+                    if (pos === 3) { claseExtra = 'rank-3'; icono = '🥉'; }
+
+                    const li = document.createElement('li');
+                    li.className = `rank-item ${claseExtra}`;
+                    li.innerHTML = `
+                        <div>
+                            <span class="rank-pos">${icono}</span>
+                            <span style="font-weight:bold;">${user.nombre}</span>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.1rem;">
+                            $${user.saldo.toFixed(2)}
+                        </div>
+                    `;
+                    lista.appendChild(li);
+                });
+            });
+        }
+
         function entrarComoAdmin() {
             mostrarPantalla('pantalla-admin');
             cargarListaAdmin();
@@ -638,6 +967,16 @@
         }
 
         // --- TRANSACCIONES ---
+
+        // Helper para refrescar saldo en pantalla de casino si cambia
+        db.ref('usuarios').on('child_changed', snap => {
+            if (usuarioActualNombre && limpiarNombre(usuarioActualNombre) === snap.key) {
+                const s = snap.val().saldo;
+                if (!document.getElementById('pantalla-casino').classList.contains('hidden')) {
+                    document.getElementById('saldoCasinoDisplay').textContent = s.toFixed(2);
+                }
+            }
+        });
 
         function actualizarSaldoNube(nuevoSaldo) {
             const idUsuario = limpiarNombre(usuarioActualNombre);
