@@ -127,7 +127,7 @@
             background-color: #8e44ad;
             /* Morado Admin */
             border-color: #9b59b6;
-            width: 500px;
+            width: 550px;
             /* Más ancho para la tabla */
         }
 
@@ -136,20 +136,59 @@
             border-collapse: collapse;
             margin-top: 10px;
             background: rgba(0, 0, 0, 0.2);
+            table-layout: fixed;
         }
 
         th,
         td {
-            padding: 5px;
+            padding: 8px 5px;
             text-align: left;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 25%;
+        }
+
+        /* Nombre */
+        th:nth-child(2),
+        td:nth-child(2) {
+            width: 15%;
+            text-align: center;
+        }
+
+        /* PIN */
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 30%;
+            text-align: right;
+        }
+
+        /* Saldo */
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 30%;
+            text-align: center;
+        }
+
+        /* Acciones */
+
+        th {
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.3);
+            text-transform: uppercase;
+            font-size: 0.75rem;
         }
 
         .btn-mini {
-            padding: 5px 10px;
-            font-size: 0.8rem;
-            margin: 2px;
+            padding: 5px 8px;
+            font-size: 0.75rem;
+            margin: 1px;
         }
 
         /* HISTORIAL */
@@ -935,9 +974,9 @@
 
                     const fila = document.createElement('tr');
                     fila.innerHTML = `
-                        <td>${u.nombreReal}</td>
+                        <td title="${u.nombreReal}">${u.nombreReal}</td>
                         <td style="color: #f1c40f;">${u.pin}</td>
-                        <td>$${u.saldo}</td>
+                        <td style="font-family: monospace;">$${u.saldo.toFixed(2)}</td>
                         <td>
                             <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 100)">+100</button>
                             <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -100)">-100</button>
