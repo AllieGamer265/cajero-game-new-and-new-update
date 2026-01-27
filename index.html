@@ -123,12 +123,21 @@
         }
 
         /* ESTILOS ADMIN */
+        #contenedor-admin {
+            background-color: #95a5a6;
+            /* Color metálico del cajero */
+            padding: 30px;
+            border-radius: 15px;
+            border: 5px solid #7f8c8d;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 580px;
+        }
+
         #pantalla-admin {
             background-color: #8e44ad;
             /* Morado Admin */
             border-color: #9b59b6;
-            width: 580px;
-            /* Más ancho para la tabla */
         }
 
         table {
@@ -472,25 +481,27 @@
     </div>
 
     <!-- PANTALLA 4: ADMIN -->
-    <div class="pantalla hidden" id="pantalla-admin">
-        <h1 style="margin: 0 0 10px 0; font-size: 1.3rem;">👑 MODO PRO / ADMIN 👑</h1>
-        <p style="margin: 0 0 15px 0; font-size: 0.85rem;">Panel de Control Supremo</p>
-        <table id="tablaAdmin">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>PIN</th>
-                    <th>Saldo</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="listaUsuariosAdmin">
-                <!-- Aquí se llenan los usuarios -->
-            </tbody>
-        </table>
-        <button onclick="cerrarSesion()"
-            style="margin-top: 15px; width: 100%; background-color: #95a5a6; font-size: 0.85rem; padding: 10px;">SALIR
-            DEL MODO PRO</button>
+    <div id="contenedor-admin" class="hidden">
+        <div class="pantalla" id="pantalla-admin">
+            <h1 style="margin: 0 0 10px 0; font-size: 1.3rem;">👑 MODO PRO / ADMIN 👑</h1>
+            <p style="margin: 0 0 15px 0; font-size: 0.85rem;">Panel de Control Supremo</p>
+            <table id="tablaAdmin">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>PIN</th>
+                        <th>Saldo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="listaUsuariosAdmin">
+                    <!-- Aquí se llenan los usuarios -->
+                </tbody>
+            </table>
+            <button onclick="cerrarSesion()"
+                style="margin-top: 15px; width: 100%; background-color: #95a5a6; font-size: 0.85rem; padding: 10px;">SALIR
+                DEL MODO PRO</button>
+        </div>
     </div>
 
     <div class="teclado"></div>
@@ -542,8 +553,22 @@
         };
 
         function mostrarPantalla(idPantalla) {
-            document.querySelectorAll('.pantalla').forEach(p => p.classList.add('hidden'));
-            document.getElementById(idPantalla).classList.remove('hidden');
+            const cajero = document.getElementById('cajero');
+            const contenedorAdmin = document.getElementById('contenedor-admin');
+
+            if (idPantalla === 'pantalla-admin') {
+                // Ocultar cajero y mostrar contenedor admin
+                cajero.style.display = 'none';
+                contenedorAdmin.classList.remove('hidden');
+            } else {
+                // Mostrar cajero y ocultar contenedor admin
+                cajero.style.display = 'block';
+                contenedorAdmin.classList.add('hidden');
+
+                // Manejar las pantallas dentro del cajero
+                document.querySelectorAll('#cajero .pantalla').forEach(p => p.classList.add('hidden'));
+                document.getElementById(idPantalla).classList.remove('hidden');
+            }
         }
 
         // --- LÓGICA DE NEGOCIO (NUBE) ---
