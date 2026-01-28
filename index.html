@@ -312,6 +312,126 @@
             color: white;
             border: 2px solid #fff;
         }
+
+        /* SHOP STYLES */
+        #pantalla-tienda {
+            background-color: #2980b9;
+            border-color: #3498db;
+        }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .shop-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .shop-item.owned {
+            border-color: #f1c40f;
+        }
+
+        .shop-item.equipped {
+            background: rgba(241, 196, 15, 0.2);
+            border-color: #27ae60;
+        }
+
+        .shop-icon {
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .shop-price {
+            font-weight: bold;
+            color: #f1c40f;
+            font-size: 0.9rem;
+        }
+
+        .btn-buy {
+            width: 100%;
+            padding: 5px;
+            font-size: 0.7rem;
+            margin-top: 5px;
+            background-color: #27ae60;
+        }
+
+        .btn-equip {
+            background-color: #3498db;
+        }
+
+        .user-icon-badge {
+            margin-right: 5px;
+            font-size: 1.2rem;
+        }
+
+        /* HACKING STYLES */
+        .btn-hack {
+            background-color: #c0392b;
+            color: white;
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 10px;
+            border: 1px solid #e74c3c;
+        }
+
+        .btn-hack:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+
+        .firewall-shield {
+            font-size: 0.9rem;
+            margin-left: 5px;
+            cursor: help;
+        }
+
+        /* LOTTERY STYLES */
+        #pantalla-loteria {
+            text-align: center;
+        }
+
+        .jackpot-box {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #2c3e50;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 2rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(241, 196, 15, 0.3);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .lottery-timer {
+            font-family: monospace;
+            background: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .lottery-info {
+            background: rgba(46, 204, 113, 0.1);
+            border: 1px solid #2ecc71;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 
@@ -357,14 +477,11 @@
                 <p>Saldo: 💰 <span id="saldoDisplay">---</span></p>
             </div>
 
-            <!-- Operaciones Propias -->
-            <input type="number" id="montoTransaccion" placeholder="Cantidad para mí...">
-            <div style="display: flex; gap: 10px; justify-content: space-between; margin-top: 5px;">
-                <button onclick="depositar()"
-                    style="flex: 1; background-color: #2ecc71; font-size: 14px; padding: 10px;">DEPOSITAR</button>
-                <button onclick="retirar()"
-                    style="flex: 1; background-color: #e74c3c; font-size: 14px; padding: 10px;">RETIRAR</button>
-            </div>
+            <!-- Operaciones Propias (SOLICITAR EN LUGAR DE DEPÓSITO LIBRE) -->
+            <button onclick="pedirDinero()"
+                style="width: 100%; background-color: #2ecc71; font-size: 16px; padding: 15px; font-weight: bold; margin-bottom: 10px;">
+                ➕ SOLICITAR DINERO
+            </button>
 
             <!-- Transferencias -->
             <div class="transfer-section">
@@ -408,6 +525,15 @@
                         🏆 RANKING
                     </button>
                 </div>
+                <!-- SHOP BUTTON -->
+                <button onclick="abrirTienda()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #2980b9, #2c3e50); color: white; border: 2px solid #3498db; font-size: 1rem; padding: 12px;">
+                    🛒 TIENDA DE SKINS
+                </button>
+                <button onclick="abrirLoteria()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #f39c12, #e67e22); color: #2c3e50; border: 2px solid #fff; font-size: 1rem; padding: 12px; font-weight: bold;">
+                    🎟️ SORTEO DIARIO (2 PM)
+                </button>
             </div>
 
             <!-- HISTORIAL -->
@@ -460,6 +586,55 @@
             </button>
         </div>
 
+        <!-- PANTALLA 6: TIENDA -->
+        <div class="pantalla hidden" id="pantalla-tienda">
+            <h1>🛒 TIENDA GAMER</h1>
+            <p>Personaliza tu perfil</p>
+
+            <div class="info-tablero" style="border-bottom: none; margin-bottom: 5px;">
+                <p>Tu Saldo: 💰 <span id="saldoTiendaDisplay">---</span></p>
+            </div>
+
+            <div class="shop-grid" id="contenedorTienda">
+                <!-- Se llena con JS -->
+                <p>Cargando catálogo...</p>
+            </div>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')"
+                style="margin-top: 20px; width: 100%; background-color: #7f8c8d;">
+                VOLVER AL BANCO
+            </button>
+        </div>
+
+        <!-- PANTALLA: LOTERÍA -->
+        <div class="pantalla hidden" id="pantalla-loteria">
+            <h1>🎟️ SORTEO NACIONAL 🎟️</h1>
+            <p>¡El pozo se acumula con cada boleto vendido!</p>
+
+            <div class="jackpot-box">
+                $<span id="pozoLoteriaDisplay">0.00</span>
+            </div>
+
+            <div class="lottery-timer">
+                Próximo sorteo en: <span id="lotteryTimer">--:--:--</span>
+            </div>
+
+            <div class="lottery-info">
+                <p style="margin: 0; font-weight: bold; color: #f1c40f;">PRECIO: $2,000</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.8rem;">Cuantos más boletos compres, más chances tienes.</p>
+            </div>
+
+            <button onclick="comprarBoleto()"
+                style="width: 100%; background-color: #2ecc71; font-size: 1.1rem; padding: 15px; font-weight: bold;">
+                COMPRAR BOLETO
+            </button>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')"
+                style="margin-top: 20px; width: 100%; background-color: #7f8c8d; font-size: 0.9rem;">
+                VOLVER AL BANCO
+            </button>
+        </div>
+
     </div>
 
     <!-- PANTALLA RANKING -->
@@ -496,6 +671,21 @@
                 </thead>
                 <tbody id="listaUsuariosAdmin">
                     <!-- Aquí se llenan los usuarios -->
+                </tbody>
+            </table>
+
+            <h1 style="margin: 20px 0 10px 0; font-size: 1.3rem;">📬 SOLICITUDES DE DINERO</h1>
+            <table id="tablaSolicitudes">
+                <thead>
+                    <tr>
+                        <th>Jugadora</th>
+                        <th>Monto</th>
+                        <th>Mensaje</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="listaSolicitudesAdmin">
+                    <!-- Aquí se llenan las solicitudes -->
                 </tbody>
             </table>
             <button onclick="cerrarSesion()"
@@ -539,6 +729,19 @@
         // --- ESTADO LOCAL ---
         let usuarioActualNombre = null; // Solo guardamos el nombre, el saldo viene en vivo
         let precioActual = 10; // Precio base local por si acaso
+        let ultimoHackAttempt = 0; // Cooldown global para el usuario actual
+
+        // --- TIENDA DE ITEMS ---
+        const TIENDA_ITEMS = [
+            { id: 'rayo', icono: '⚡', nombre: 'Rayo Veloz', precio: 500 },
+            { id: 'mando', icono: '🎮', nombre: 'Gamer Pro', precio: 1000 },
+            { id: 'fuego', icono: '🔥', nombre: 'En Llamas', precio: 2500 },
+            { id: 'pizza', icono: '🍕', nombre: 'Pizza Lover', precio: 5000 },
+            { id: 'corona', icono: '👑', nombre: 'Rey del Banco', precio: 10000 },
+            { id: 'diamante', icono: '💎', nombre: 'Diamante Puro', precio: 25000 },
+            { id: 'dragon', icono: '🐉', nombre: 'Dragón Legend', precio: 50000 },
+            { id: 'firewall', icono: '🛡️', nombre: 'Ciber-Escudo (1h)', precio: 1000 }
+        ];
 
         // --- INICIALIZACIÓN ---
         window.onload = function () {
@@ -555,18 +758,24 @@
         function mostrarPantalla(idPantalla) {
             const cajero = document.getElementById('cajero');
             const contenedorAdmin = document.getElementById('contenedor-admin');
+            const ranking = document.getElementById('pantalla-ranking');
 
+            // 1. Ocultar todas las pantallas (clase .pantalla)
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.add('hidden'));
+
+            // 2. Gestionar contenedores principales y mostrar la pantalla seleccionada
             if (idPantalla === 'pantalla-admin') {
-                // Ocultar cajero y mostrar contenedor admin
                 cajero.style.display = 'none';
                 contenedorAdmin.classList.remove('hidden');
+                document.getElementById('pantalla-admin').classList.remove('hidden');
+            } else if (idPantalla === 'pantalla-ranking') {
+                cajero.style.display = 'none';
+                contenedorAdmin.classList.add('hidden');
+                ranking.classList.remove('hidden');
             } else {
-                // Mostrar cajero y ocultar contenedor admin
+                // Pantallas dentro del cajero
                 cajero.style.display = 'block';
                 contenedorAdmin.classList.add('hidden');
-
-                // Manejar las pantallas dentro del cajero
-                document.querySelectorAll('#cajero .pantalla').forEach(p => p.classList.add('hidden'));
                 document.getElementById(idPantalla).classList.remove('hidden');
             }
         }
@@ -583,7 +792,7 @@
             const nombre = document.getElementById('regNombre').value.trim();
             const pin = document.getElementById('regPin').value;
             // const monto = parseFloat(document.getElementById('regMonto').value);
-            const monto = 1000; // TODOS EMPIEZAN IGUAL PARA SER JUSTOS
+            const monto = 10000; // TODOS EMPIEZAN IGUAL PARA SER JUSTOS
 
             if (nombre === "" || pin.length !== 4) {
                 alert("⚠️ Datos inválidos. Revisa todos los campos.");
@@ -659,11 +868,19 @@
             db.ref('usuarios/' + idUsuario).on('value', (snapshot) => {
                 const datos = snapshot.val();
                 if (datos) {
-                    document.getElementById('nombreUsuarioDisplay').textContent = datos.nombreReal;
+                    const icono = datos.iconoActivo || '';
+                    const badgeHtml = icono ? `<span class="user-icon-badge">${icono}</span>` : '';
+                    document.getElementById('nombreUsuarioDisplay').innerHTML = badgeHtml + datos.nombreReal;
                     document.getElementById('saldoDisplay').textContent = datos.saldo.toFixed(2);
                     // Actualizar mis criptos (si no existe campo, es 0)
                     const misCriptos = datos.criptomonedas || 0;
                     document.getElementById('txtMisCriptos').textContent = misCriptos;
+
+                    // Actualizar saldo en tienda si está abierta
+                    if (!document.getElementById('pantalla-tienda').classList.contains('hidden')) {
+                        document.getElementById('saldoTiendaDisplay').textContent = datos.saldo.toFixed(2);
+                        renderizarTienda(datos);
+                    }
                 }
             });
 
@@ -938,11 +1155,16 @@
 
                 // Convertir Objeto a Array para poder ordenar
                 const usuariosArray = [];
+                const idUsuarioActual = limpiarNombre(usuarioActualNombre);
+
                 snapshot.forEach(child => {
                     const u = child.val();
                     usuariosArray.push({
+                        id: child.key,
                         nombre: u.nombreReal,
-                        saldo: u.saldo || 0
+                        saldo: u.saldo || 0,
+                        iconoActivo: u.iconoActivo || '',
+                        firewallHasta: u.firewallHasta || 0
                     });
                 });
 
@@ -963,12 +1185,21 @@
                     if (pos === 2) { claseExtra = 'rank-2'; icono = '🥈'; }
                     if (pos === 3) { claseExtra = 'rank-3'; icono = '🥉'; }
 
+                    const skinIcono = user.iconoActivo || '';
+                    const firewallHasta = user.firewallHasta || 0;
+                    const tieneFirewall = firewallHasta > Date.now();
+
+                    const hackBtnHtml = (user.id !== idUsuarioActual) ?
+                        `<button class="btn-hack" onclick="intentarHackear('${user.id}', '${user.nombre}')">HACK</button>` : '';
+
+                    const shieldHtml = tieneFirewall ? `<span class="firewall-shield" title="Protección Activa">🛡️</span>` : '';
+
                     const li = document.createElement('li');
                     li.className = `rank-item ${claseExtra}`;
                     li.innerHTML = `
                         <div>
-                            <span class="rank-pos">${icono}</span>
-                            <span style="font-weight:bold;">${user.nombre}</span>
+                            <span class="rank-pos">${icono} ${skinIcono} ${user.nombre} ${shieldHtml}</span>
+                            ${hackBtnHtml}
                         </div>
                         <div style="font-family: monospace; font-size: 1.1rem;">
                             $${user.saldo.toFixed(2)}
@@ -982,6 +1213,57 @@
         function entrarComoAdmin() {
             mostrarPantalla('pantalla-admin');
             cargarListaAdmin();
+            cargarSolicitudesAdmin();
+        }
+
+        function cargarSolicitudesAdmin() {
+            const tbody = document.getElementById('listaSolicitudesAdmin');
+            tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+
+            db.ref('solicitudes').on('value', (snapshot) => {
+                tbody.innerHTML = '';
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = '<tr><td colspan="4">No hay solicitudes</td></tr>';
+                    return;
+                }
+
+                snapshot.forEach((childSnapshot) => {
+                    const idSolicitud = childSnapshot.key;
+                    const sol = childSnapshot.val();
+
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
+                        <td title="${sol.nombre}">${sol.nombre}</td>
+                        <td style="color: #2ecc71; font-weight: bold;">$${sol.monto}</td>
+                        <td style="font-size: 0.7rem;">${sol.mensaje}</td>
+                        <td>
+                            <button class="btn-mini" style="background:#27ae60" onclick="adminResolverSolicitud('${idSolicitud}', true)">Aprobar</button>
+                            <button class="btn-mini" style="background:#e74c3c" onclick="adminResolverSolicitud('${idSolicitud}', false)">X</button>
+                        </td>
+                    `;
+                    tbody.appendChild(fila);
+                });
+            });
+        }
+
+        function adminResolverSolicitud(idSolicitud, aprobado) {
+            db.ref('solicitudes/' + idSolicitud).once('value').then(snap => {
+                const sol = snap.val();
+                if (!sol) return;
+
+                if (aprobado) {
+                    // Transferir dinero
+                    db.ref('usuarios/' + sol.idUsuario + '/saldo').transaction(s => (s || 0) + sol.monto);
+                    // Registrar el movimiento
+                    registrarMovimiento(sol.idUsuario, "REGALO ADMIN", sol.monto, "Dinero enviado por Admin", true);
+                    alert("Aprobado con éxito.");
+                } else {
+                    alert("Solicitud rechazada.");
+                }
+
+                // Borrar la solicitud en ambos casos
+                db.ref('solicitudes/' + idSolicitud).remove();
+            });
         }
 
         function cargarListaAdmin() {
@@ -1036,10 +1318,283 @@
                 const idUsuario = limpiarNombre(usuarioActualNombre);
                 db.ref('usuarios/' + idUsuario).off();
             }
+            // Dejar de escuchar cambios de solicitudes
+            db.ref('solicitudes').off();
             // Dejar de escuchar cambios de admin
             db.ref('usuarios').off();
             usuarioActualNombre = null;
             mostrarPantalla('pantalla-login');
+        }
+
+        // --- SOLICITUDES DE DINERO ---
+        function pedirDinero() {
+            const monto = prompt("¿Cuánto dinero quieres solicitar al banco?");
+            if (monto === null || monto === "" || isNaN(monto) || parseFloat(monto) <= 0) {
+                alert("Monto inválido.");
+                return;
+            }
+
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('solicitudes').push({
+                idUsuario: idUsuario,
+                nombre: usuarioActualNombre,
+                monto: parseFloat(monto),
+                mensaje: "Me podrías mandar dinero?",
+                fecha: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                alert("✅ Solicitud enviada al Admin. Espera su aprobación.");
+            });
+        }
+
+        // --- LÓGICA TIENDA ---
+        function abrirTienda() {
+            mostrarPantalla('pantalla-tienda');
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario).once('value').then(snap => {
+                renderizarTienda(snap.val());
+            });
+        }
+
+        function renderizarTienda(datosUsuario) {
+            const contenedor = document.getElementById('contenedorTienda');
+            const inventario = datosUsuario.inventarioIconos || [];
+            const equipado = datosUsuario.iconoActivo || '';
+
+            document.getElementById('saldoTiendaDisplay').textContent = datosUsuario.saldo.toFixed(2);
+
+            contenedor.innerHTML = '';
+
+            TIENDA_ITEMS.forEach(item => {
+                const esComprado = inventario.includes(item.id);
+                const esEquipado = equipado === item.icono;
+
+                let claseExtra = esComprado ? 'owned' : '';
+                if (esEquipado) claseExtra = 'equipped';
+
+                const card = document.createElement('div');
+                card.className = `shop-item ${claseExtra}`;
+
+                let btnHtml = '';
+                if (esEquipado) {
+                    btnHtml = `<button class="btn-buy" disabled style="background:#7f8c8d">EQUIPADO</button>`;
+                } else if (esComprado) {
+                    btnHtml = `<button class="btn-buy btn-equip" onclick="equiparIcono('${item.id}', '${item.icono}')">EQUIPAR</button>`;
+                } else {
+                    btnHtml = `<button class="btn-buy" onclick="comprarIcono('${item.id}', ${item.precio})">COMPRAR</button>`;
+                }
+
+                card.innerHTML = `
+                    <span class="shop-icon">${item.icono}</span>
+                    <span style="font-size:0.8rem; display:block; font-weight:bold;">${item.nombre}</span>
+                    <span class="shop-price">$${item.precio}</span>
+                    ${btnHtml}
+                `;
+                contenedor.appendChild(card);
+            });
+        }
+
+        function comprarIcono(idItem, precio) {
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+
+            db.ref('usuarios/' + idUsuario).transaction((user) => {
+                if (user) {
+                    if (user.saldo >= precio) {
+                        user.saldo -= precio;
+
+                        // Si es el Firewall, añadimos tiempo
+                        if (idItem === 'firewall') {
+                            const ahora = Date.now();
+                            const actual = user.firewallHasta || ahora;
+                            // Si ya tiene uno activo, sumamos a partir de ese, si no desde ahora
+                            const base = actual > ahora ? actual : ahora;
+                            user.firewallHasta = base + (60 * 60 * 1000); // +1 hora
+                        } else {
+                            if (!user.inventarioIconos) user.inventarioIconos = [];
+                            if (!user.inventarioIconos.includes(idItem)) {
+                                user.inventarioIconos.push(idItem);
+                            }
+                        }
+                        return user;
+                    }
+                }
+                return;
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    if (idItem === 'firewall') {
+                        alert("🛡️ Ciber-Escudo activado por 1 hora.");
+                    } else {
+                        alert("¡Compra exitosa! Ahora puedes equiparlo.");
+                    }
+                } else {
+                    alert("No tienes saldo suficiente.");
+                }
+            });
+        }
+
+        // --- LÓGICA DE LOTERÍA ---
+        let intervaloLoteria = null;
+
+        function abrirLoteria() {
+            mostrarPantalla('pantalla-loteria');
+
+            // Escuchar el pozo en tiempo real
+            db.ref('loteria/pozo').on('value', snap => {
+                const pozo = snap.val() || 0;
+                document.getElementById('pozoLoteriaDisplay').textContent = pozo.toFixed(2);
+            });
+
+            // Iniciar o reiniciar el timer visual
+            if (intervaloLoteria) clearInterval(intervaloLoteria);
+            actualizarTimerVisual();
+            intervaloLoteria = setInterval(actualizarTimerVisual, 1000);
+        }
+
+        function actualizarTimerVisual() {
+            const ahora = new Date();
+            const proximoSorteo = new Date();
+            proximoSorteo.setHours(14, 0, 0, 0); // 2:00 PM
+
+            // Si ya pasó la hora hoy, apuntar a mañana
+            if (ahora >= proximoSorteo) {
+                // Si justo es el momento o después, podríamos disparar el sorteo si no se ha hecho
+                verificarSorteoPendiente();
+                proximoSorteo.setDate(proximoSorteo.getDate() + 1);
+            }
+
+            const diff = proximoSorteo - ahora;
+            const horas = Math.floor(diff / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const segs = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('lotteryTimer').textContent =
+                `${horas.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+        }
+
+        function comprarBoleto() {
+            const precioBoleto = 2000;
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+
+            db.ref('usuarios/' + idUsuario).transaction(user => {
+                if (user && user.saldo >= precioBoleto) {
+                    user.saldo -= precioBoleto;
+                    return user;
+                }
+                return;
+            }, (error, committed) => {
+                if (committed) {
+                    // Añadir al pozo y a la lista de tickets
+                    db.ref('loteria/pozo').transaction(p => (p || 0) + precioBoleto);
+                    db.ref('loteria/tickets').push({
+                        id: idUsuario,
+                        nombre: usuarioActualNombre
+                    });
+                    alert("🎟️ ¡Boleto comprado! Buena suerte.");
+                    registrarMovimiento(idUsuario, "LOTERIA", precioBoleto, "Compra de boleto para el sorteo", false);
+                } else {
+                    alert("No tienes saldo suficiente ($2,000).");
+                }
+            });
+        }
+
+        function verificarSorteoPendiente() {
+            const hoy = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            db.ref('loteria/ultimoSorteo').once('value').then(snap => {
+                if (snap.val() !== hoy) {
+                    // El sorteo de hoy no se ha hecho
+                    ejecutarSorteo(hoy);
+                }
+            });
+        }
+
+        function ejecutarSorteo(fechaHoy) {
+            // Marcar como hecho para evitar ejecuciones dobles
+            db.ref('loteria/ultimoSorteo').set(fechaHoy);
+
+            db.ref('loteria').once('value').then(snap => {
+                const data = snap.val();
+                if (!data || !data.tickets) {
+                    console.log("No hay tickets para el sorteo.");
+                    db.ref('loteria/pozo').set(0);
+                    return;
+                }
+
+                const tickets = Object.values(data.tickets);
+                const pozo = data.pozo || 0;
+
+                // Elegir ganador al azar
+                const ganador = tickets[Math.floor(Math.random() * tickets.length)];
+
+                // Entregar premio
+                db.ref('usuarios/' + ganador.id + '/saldo').transaction(s => (s || 0) + pozo);
+                registrarMovimiento(ganador.id, "¡PREMIO LOTERIA!", pozo, "¡Ganaste el sorteo diario! 🎟️", true);
+
+                alert(`🎊 ¡TENEMOS GANADOR! 🎊\n\nFelicidades a ${ganador.nombre}.\nSe lleva un pozo de $${pozo.toFixed(2)}`);
+
+                // Limpiar tickets y pozo para mañana
+                db.ref('loteria/tickets').remove();
+                db.ref('loteria/pozo').set(0);
+            });
+        }
+
+        function intentarHackear(idDestinatario, nombreDestinatario) {
+            const ahora = Date.now();
+            const idAtacante = limpiarNombre(usuarioActualNombre);
+
+            // 1. Cooldown de 1 minuto
+            if (ahora - ultimoHackAttempt < 60000) {
+                const segundosCura = Math.ceil((60000 - (ahora - ultimoHackAttempt)) / 1000);
+                alert(`⏳ Estás en cooldown. Espera ${segundosCura}s para volver a hackear.`);
+                return;
+            }
+
+            ultimoHackAttempt = ahora;
+
+            // 2. Obtener datos del objetivo
+            db.ref('usuarios/' + idDestinatario).once('value').then(snap => {
+                const target = snap.val();
+                if (!target) return;
+
+                // 3. Verificar Firewall
+                const firewallHasta = target.firewallHasta || 0;
+                if (firewallHasta > ahora) {
+                    alert(`⛔ HACK FALLIDO: ${nombreDestinatario} tiene un Ciber-Escudo activo 🛡️.`);
+                    return;
+                }
+
+                // 4. Probabilidad (10% éxito)
+                const exito = Math.random() < 0.10;
+
+                if (exito) {
+                    const robo = Math.floor(target.saldo * 0.05); // Robles el 5%
+                    if (robo < 1) {
+                        alert(`🤡 Intentaste hackear a ${nombreDestinatario} pero no tiene casi dinero. Robo fallido.`);
+                        return;
+                    }
+
+                    // 5. Transferencia Atómica
+                    // Restar al objetivo
+                    db.ref('usuarios/' + idDestinatario + '/saldo').transaction(s => (s || 0) - robo);
+                    // Sumar al atacante
+                    db.ref('usuarios/' + idAtacante + '/saldo').transaction(s => (s || 0) + robo);
+
+                    // Registrar movimientos
+                    registrarMovimiento(idAtacante, "HACK SUCCESS", robo, "Hackeo exitoso a " + nombreDestinatario, true);
+                    registrarMovimiento(idDestinatario, "HACKED", robo, "¡FUISTE HACKEADA POR " + usuarioActualNombre + "!", false);
+
+                    alert(`🏴‍☠️ ¡HACKEO EXITOSO! Has robado $${robo} de la cuenta de ${nombreDestinatario}.`);
+                } else {
+                    alert(`❌ HACK FALLIDO: Has sido detectado por los sistemas de ${nombreDestinatario}.`);
+                }
+            });
+        }
+
+        function equiparIcono(idItem, icono) {
+            const idUsuario = limpiarNombre(usuarioActualNombre);
+            db.ref('usuarios/' + idUsuario).update({
+                iconoActivo: icono
+            }).then(() => {
+                alert("¡Icono equipado!");
+            });
         }
 
         // --- TRANSACCIONES ---
