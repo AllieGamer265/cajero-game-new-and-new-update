@@ -31,7 +31,9 @@ const ADMIN_PIN = "2015";
 // Variables globales que mantienen el estado actual de la sesión.
 let usuarioActualNombre = null; // Nombre de la jugadora logueada.
 let precioActual = 10; // Precio de la criptomoneda gamer.
+let precioAnteriorRecordado = 10; // Para saber si subió o bajó.
 let ultimoHackAttempt = 0; // Tiempo de espera para el minijuego de hackeo.
+let dueloActualId = null; // ID del duelo en curso.
 
 // --- TIENDA DE ITEMS (Iconos y Escudos) ---
 const TIENDA_ITEMS = [
@@ -75,10 +77,10 @@ function mostrarPantalla(idPantalla) {
         cajero.style.display = 'none';
         contenedorAdmin.classList.remove('hidden');
         document.getElementById('pantalla-admin').classList.remove('hidden');
-    } else if (idPantalla === 'pantalla-ranking') {
+    } else if (idPantalla === 'pantalla-ranking' || idPantalla === 'pantalla-duelo') {
         cajero.style.display = 'none';
         contenedorAdmin.classList.add('hidden');
-        ranking.classList.remove('hidden');
+        document.getElementById(idPantalla).classList.remove('hidden');
     } else {
         // Pantallas normales dentro de la interfaz del cajero.
         cajero.style.display = 'block';
@@ -95,6 +97,16 @@ function mostrarPantalla(idPantalla) {
  */
 function limpiarNombre(nombre) {
     return nombre.toLowerCase().replace(/\s/g, '');
+}
+
+/**
+ * Formatea números grandes para que sean legibles (K, M, B) y no usen notación científica.
+ */
+function formatearNumero(num) {
+    if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+    return num.toFixed(2);
 }
 
 /**
@@ -181,6 +193,10 @@ function iniciarSesion() {
 function entrarAlCajero(idUsuario, datosIniciales) {
     mostrarPantalla('pantalla-cajero');
 
+    // Sistema para rastrear si la jugadora está en línea.
+    db.ref('usuarios/' + idUsuario + '/online').set(true);
+    db.ref('usuarios/' + idUsuario + '/online').onDisconnect().set(false);
+
     // ESCUCHAR CAMBIOS EN VIVO (Listener):
     // Firebase nos avisa si el saldo o los datos cambian (por ejemplo, si recibimos una transferencia).
     db.ref('usuarios/' + idUsuario).on('value', (snapshot) => {
@@ -209,6 +225,9 @@ function entrarAlCajero(idUsuario, datosIniciales) {
 
     // Iniciar la fluctuación de precios del mercado de criptos.
     iniciarMercado();
+
+    // Escuchar si alguien nos está retando a un duelo.
+    escucharRetos(idUsuario);
 }
 
 // --- HISTORIAL DE TRANSACCIONES ---
@@ -301,7 +320,20 @@ function calcularNuevoPrecio(precioAnterior) {
 function actualizarDisplayPrecio(precio) {
     const el = document.getElementById('txtPrecioMercado');
     const precioFix = precio.toFixed(2);
-    el.textContent = "$" + precioFix;
+
+    let flecha = "";
+    let colorFlecha = "";
+
+    if (precio > precioAnteriorRecordado) {
+        flecha = "▲"; // Sube
+        colorFlecha = "#2ecc71"; // Verde
+    } else if (precio < precioAnteriorRecordado) {
+        flecha = "▼"; // Baja
+        colorFlecha = "#e74c3c"; // Rojo
+    }
+
+    el.innerHTML = `$${precioFix} <span style="color: ${colorFlecha}; font-size: 1.2rem;">${flecha}</span>`;
+    precioAnteriorRecordado = precio;
 }
 
 /**
@@ -549,7 +581,8 @@ function verRanking() {
 
             // Solo mostramos el botón de hackear si el usuario no somos nosotras mismas.
             const hackBtnHtml = (user.id !== idUsuarioActual) ?
-                `<button class="btn-hack" onclick="intentarHackear('${user.id}', '${user.nombre}')">HACK</button>` : '';
+                `<button class="btn-hack" onclick="intentarHackear('${user.id}', '${user.nombre}')">HACK</button>
+                 <button class="btn-hack btn-duelo" onclick="intentarRetar('${user.id}', '${user.nombre}')">RETAR ⚔️</button>` : '';
 
             const shieldHtml = tieneFirewall ? `<span class="firewall-shield" title="Protección Activa">🛡️</span>` : '';
 
@@ -561,7 +594,7 @@ function verRanking() {
                             ${hackBtnHtml}
                         </div>
                         <div style="font-family: monospace; font-size: 1.1rem;">
-                            $${user.saldo.toFixed(2)}
+                            $${formatearNumero(user.saldo)}
                         </div>
                     `;
             lista.appendChild(li);
@@ -662,8 +695,12 @@ function cargarListaAdmin() {
                 saldoDisplay = saldoFormateado.substring(0, 9) + '...';
             }
 
+            const statusClass = u.online ? 'status-online' : 'status-offline';
+
             fila.innerHTML = `
-                        <td title="${u.nombreReal}">${u.nombreReal}</td>
+                        <td title="${u.nombreReal}">
+                            <span class="status-dot ${statusClass}"></span> ${u.nombreReal}
+                        </td>
                         <td style="color: #f1c40f;">${u.pin}</td>
                         <td style="font-family: monospace;" title="Saldo completo: $${saldoFormateado}">$${saldoDisplay}</td>
                         <td>
@@ -691,6 +728,7 @@ function adminModificarSaldo(idUsuario, cantidad) {
 function cerrarSesion() {
     if (usuarioActualNombre) {
         const idUsuario = limpiarNombre(usuarioActualNombre);
+        db.ref('usuarios/' + idUsuario + '/online').set(false); // Marcar como offline manualmente.
         db.ref('usuarios/' + idUsuario).off();
     }
     db.ref('solicitudes').off();
@@ -1122,4 +1160,217 @@ function transferirDinero() {
         });
     });
 }
+
+// --- SISTEMA DE DUELOS (MINIJUEGOS 1vs1) ---
+
+/**
+ * Inicia el proceso de reto a otro jugador.
+ */
+function intentarRetar(idOponente, nombreOponente) {
+    const apuesta = prompt(`¿Cuánto quieres apostar contra ${nombreOponente}?`);
+    if (apuesta === null || apuesta === "" || isNaN(apuesta) || parseFloat(apuesta) <= 0) return;
+
+    const monto = parseFloat(apuesta);
+    const idRetador = limpiarNombre(usuarioActualNombre);
+
+    // Verificar si tienes saldo suficiente para la apuesta.
+    db.ref('usuarios/' + idRetador + '/saldo').once('value').then(snap => {
+        const miSaldo = snap.val() || 0;
+        if (miSaldo < monto) {
+            alert("No tienes dinero suficiente para esta apuesta.");
+            return;
+        }
+
+        // Crear el duelo en Firebase.
+        const idDuelo = "duel_" + Date.now();
+        db.ref('duelos/' + idDuelo).set({
+            retador: usuarioActualNombre,
+            idRetador: idRetador,
+            oponente: nombreOponente,
+            idOponente: idOponente,
+            apuesta: monto,
+            estado: 'pendiente'
+        }).then(() => {
+            alert("⚔️ Reto enviado. Esperando a que acepte...");
+        });
+    });
+}
+
+/**
+ * Escucha retos entrantes dirigidos al usuario actual.
+ */
+function escucharRetos(miId) {
+    db.ref('duelos').on('value', snapshot => {
+        const duelos = snapshot.val();
+        if (!duelos) return;
+
+        Object.keys(duelos).forEach(idDuelo => {
+            const duelo = duelos[idDuelo];
+
+            // Si somos el oponente y el duelo está pendiente.
+            if (duelo.idOponente === miId && duelo.estado === 'pendiente') {
+                mostrarNotificacionDuelo(idDuelo, duelo);
+            }
+
+            // Si somos parte del duelo y ha sido aceptado, entramos a la pantalla.
+            if ((duelo.idRetador === miId || duelo.idOponente === miId) && duelo.estado === 'aceptado') {
+                iniciarPantallaDuelo(idDuelo, duelo);
+            }
+        });
+    });
+}
+
+/**
+ * Muestra una alerta visual de que alguien te ha retado.
+ */
+function mostrarNotificacionDuelo(idDuelo, duelo) {
+    const contenedor = document.getElementById('notificaciones-duelo');
+    // Evitar duplicados.
+    if (document.getElementById('notif_' + idDuelo)) return;
+
+    const div = document.createElement('div');
+    div.id = 'notif_' + idDuelo;
+    div.className = 'alerta-duelo';
+    div.innerHTML = `
+        <p><strong>${duelo.retador}</strong> te reta a un duelo por <strong>$${duelo.apuesta}</strong>!</p>
+        <div style="display:flex; gap:5px;">
+            <button class="btn-mini" style="background:#27ae60" onclick="aceptarDuelo('${idDuelo}')">ACEPTAR</button>
+            <button class="btn-mini" style="background:#e74c3c" onclick="rechazarDuelo('${idDuelo}')">NO</button>
+        </div>
+    `;
+    contenedor.appendChild(div);
+}
+
+/**
+ * Acepta el duelo y descuenta la apuesta.
+ */
+function aceptarDuelo(idDuelo) {
+    db.ref('duelos/' + idDuelo).once('value').then(snap => {
+        const duelo = snap.val();
+        if (!duelo) return;
+
+        const miId = limpiarNombre(usuarioActualNombre);
+
+        // Descontar saldo a ambos.
+        db.ref('usuarios/' + miId + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err, committed) => {
+            if (committed) {
+                db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err2, committed2) => {
+                    if (committed2) {
+                        // Cambiar estado a aceptado.
+                        db.ref('duelos/' + idDuelo + '/estado').set('aceptado');
+                    } else {
+                        alert("El retador ya no tiene dinero.");
+                        db.ref('usuarios/' + miId + '/saldo').transaction(s => s + duelo.apuesta); // Devolver dinero.
+                        db.ref('duelos/' + idDuelo).remove();
+                    }
+                });
+            } else {
+                alert("No tienes saldo suficiente.");
+            }
+        });
+    });
+    const notif = document.getElementById('notif_' + idDuelo);
+    if (notif) notif.remove();
+}
+
+/**
+ * Rechaza el duelo.
+ */
+function rechazarDuelo(idDuelo) {
+    db.ref('duelos/' + idDuelo).remove();
+    const notif = document.getElementById('notif_' + idDuelo);
+    if (notif) notif.remove();
+}
+
+/**
+ * Configura la pantalla de duelo para la batalla.
+ */
+function iniciarPantallaDuelo(idDuelo, duelo) {
+    dueloActualId = idDuelo;
+    mostrarPantalla('pantalla-duelo');
+
+    document.getElementById('duelRetador').textContent = duelo.retador;
+    document.getElementById('duelOponente').textContent = duelo.oponente;
+    document.getElementById('montoApuestaDuelo').textContent = (duelo.apuesta * 2).toFixed(2);
+
+    document.getElementById('rollRetador').textContent = duelo.rollRetador || "?";
+    document.getElementById('rollOponente').textContent = duelo.rollOponente || "?";
+
+    const miId = limpiarNombre(usuarioActualNombre);
+    const yaLance = (miId === duelo.idRetador && duelo.rollRetador) || (miId === duelo.idOponente && duelo.rollOponente);
+
+    if (yaLance) {
+        document.getElementById('btnLanzarDuelo').style.display = 'none';
+        document.getElementById('txtEstadoDuelo').textContent = "Esperando al otro jugador...";
+    } else {
+        document.getElementById('btnLanzarDuelo').style.display = 'block';
+        document.getElementById('txtEstadoDuelo').textContent = "¡Es tu turno de lanzar!";
+    }
+
+    // Verificar si ambos lanzaron para declarar ganador.
+    if (duelo.rollRetador && duelo.rollOponente && duelo.estado !== 'finalizado') {
+        finalizarDuelo(idDuelo, duelo);
+    }
+}
+
+/**
+ * Genera un número aleatorio para el duelo.
+ */
+function lanzarDadosDuelo() {
+    const roll = Math.floor(Math.random() * 100) + 1;
+    const miId = limpiarNombre(usuarioActualNombre);
+
+    db.ref('duelos/' + dueloActualId).once('value').then(snap => {
+        const duelo = snap.val();
+        const campo = (miId === duelo.idRetador) ? 'rollRetador' : 'rollOponente';
+
+        db.ref('duelos/' + dueloActualId + '/' + campo).set(roll);
+        document.getElementById('btnLanzarDuelo').style.display = 'none';
+    });
+}
+
+/**
+ * Determina quién ganó y entrega el premio.
+ */
+function finalizarDuelo(idDuelo, duelo) {
+    let ganadorId = null;
+    let ganadorNombre = "";
+
+    if (duelo.rollRetador > duelo.rollOponente) {
+        ganadorId = duelo.idRetador;
+        ganadorNombre = duelo.retador;
+    } else if (duelo.rollOponente > duelo.rollRetador) {
+        ganadorId = duelo.idOponente;
+        ganadorNombre = duelo.oponente;
+    } else {
+        // Empate.
+        ganadorId = "empate";
+    }
+
+    db.ref('duelos/' + idDuelo + '/estado').set('finalizado').then(() => {
+        const premio = duelo.apuesta * 2;
+
+        if (ganadorId === "empate") {
+            document.getElementById('txtEstadoDuelo').textContent = "¡EMPATE! Se devuelve el dinero.";
+            db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => s + duelo.apuesta);
+            db.ref('usuarios/' + duelo.idOponente + '/saldo').transaction(s => s + duelo.apuesta);
+        } else {
+            document.getElementById('txtEstadoDuelo').textContent = "¡GANADOR: " + ganadorNombre.toUpperCase() + "! 🏆";
+            db.ref('usuarios/' + ganadorId + '/saldo').transaction(s => s + premio);
+            registrarMovimiento(ganadorId, "DUELO WIN", premio, "Ganaste duelo vs " + (ganadorId === duelo.idRetador ? duelo.oponente : duelo.retador), true);
+        }
+
+        // Limpiar el duelo después de 10 segundos.
+        setTimeout(() => {
+            if (dueloActualId === idDuelo) {
+                mostrarPantalla('pantalla-cajero');
+                db.ref('duelos/' + idDuelo).remove();
+            }
+        }, 10000);
+    });
+}
+
+
+
+
 

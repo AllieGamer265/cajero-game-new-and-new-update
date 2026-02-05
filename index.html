@@ -82,7 +82,7 @@
                     </div>
                     <div style="text-align: right;">
                         <span style="font-size: 0.8rem;">Tus Coins:</span><br>
-                        <span id="txtMisCriptos" style="font-size: 1.5rem; font-weight: bold; color: #3498db;">0</span>
+                        <span id="txtMisCriptos" style="font-size: 1.5rem; font-weight: bold; color: #f1c40f;">0</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
@@ -232,6 +232,37 @@
             VOLVER AL BANCO
         </button>
     </div>
+
+    <!-- PANTALLA: DUELO GAMER - Batalla 1vs1 -->
+    <div class="pantalla hidden" id="pantalla-duelo">
+        <h1>⚔️ DUELO GAMER ⚔️</h1>
+        <div id="infoApostadores"
+            style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 20px;">
+            <div id="duelRetador" style="text-align: center;">---</div>
+            <div style="font-size: 2rem; font-weight: bold; color: #f1c40f;">VS</div>
+            <div id="duelOponente" style="text-align: center;">---</div>
+        </div>
+
+        <div id="arenaDuelo"
+            style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <p style="font-weight: bold; color: #f1c40f;">APUESTA: $<span id="montoApuestaDuelo">0</span></p>
+            <div style="display: flex; justify-content: space-around; font-size: 3rem;">
+                <div id="rollRetador">?</div>
+                <div id="rollOponente">?</div>
+            </div>
+            <p id="txtEstadoDuelo">Esperando a que comience la batalla...</p>
+        </div>
+
+        <button id="btnLanzarDuelo" onclick="lanzarDadosDuelo()"
+            style="width: 100%; background: #e67e22; display: none;">¡LANZAR NÚMERO! 🎲</button>
+
+        <button onclick="mostrarPantalla('pantalla-cajero')" id="btnSalirDuelo"
+            style="margin-top: 10px; width: 100%; background-color: #7f8c8d;">SALIR</button>
+    </div>
+
+    <!-- CONTENEDOR DE NOTIFICACIONES (Retos entrantes) -->
+    <div id="notificaciones-duelo" style="position: fixed; top: 20px; right: 20px; z-index: 1000; width: 250px;"></div>
+
 
     <!-- PANTALLA 4: ADMIN - Panel de administración para gestionar usuarios y solicitudes -->
     <div id="contenedor-admin" class="hidden">
