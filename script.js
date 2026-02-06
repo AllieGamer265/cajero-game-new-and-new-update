@@ -34,6 +34,27 @@ let precioActual = 10; // Precio de la criptomoneda gamer.
 let precioAnteriorRecordado = 10; // Para saber si subió o bajó.
 let ultimoHackAttempt = 0; // Tiempo de espera para el minijuego de hackeo.
 let dueloActualId = null; // ID del duelo en curso.
+let eventoGlobalActivo = null; // Para rastrear si hay un evento mundial.
+
+// Variables para el minijuego de hackeo
+let hackerSecuenciaTarget = "";
+let hackerSecuenciaActual = "";
+let hackerTargetId = null;
+let hackerTargetNombre = "";
+let hackerTimerInterval = null;
+
+// Variables para el juego de BUSCAMINAS
+let minasTablero = []; // 0 = diamante, 1 = bomba
+let minasJuegoActivo = false;
+let minasMultiplicador = 1;
+let minasApuestaActual = 0;
+let minasDiamantesEncontrados = 0;
+let minasBombasTotales = 3;
+
+// --- VARIABLES ROBODE BANCO ---
+let roboJuegoActivo = false;
+let roboContribuidoresRef = null;
+let roboEscuchandoBoveda = false;
 
 // --- TIENDA DE ITEMS (Iconos y Escudos) ---
 const TIENDA_ITEMS = [
@@ -77,7 +98,7 @@ function mostrarPantalla(idPantalla) {
         cajero.style.display = 'none';
         contenedorAdmin.classList.remove('hidden');
         document.getElementById('pantalla-admin').classList.remove('hidden');
-    } else if (idPantalla === 'pantalla-ranking' || idPantalla === 'pantalla-duelo') {
+    } else if (idPantalla === 'pantalla-ranking' || idPantalla === 'pantalla-duelo' || idPantalla === 'pantalla-hackeo') {
         cajero.style.display = 'none';
         contenedorAdmin.classList.add('hidden');
         document.getElementById(idPantalla).classList.remove('hidden');
@@ -103,6 +124,9 @@ function limpiarNombre(nombre) {
  * Formatea números grandes para que sean legibles (K, M, B) y no usen notación científica.
  */
 function formatearNumero(num) {
+    if (isNaN(num) || num === null) return "0.00";
+    if (num > 1e15) return "999T+"; // Límite visual para evitar notación científica fea
+    if (num >= 1000000000000) return (num / 1000000000000).toFixed(2) + 'T';
     if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
     if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
@@ -228,6 +252,9 @@ function entrarAlCajero(idUsuario, datosIniciales) {
 
     // Escuchar si alguien nos está retando a un duelo.
     escucharRetos(idUsuario);
+
+    // Escuchar eventos globales lanzados por la Admin.
+    escucharEventosGlobales();
 }
 
 // --- HISTORIAL DE TRANSACCIONES ---
@@ -448,6 +475,12 @@ function jugarCasino() {
                     premio = apuesta * 2;
                     mensaje = "¡PAR! x2 😊";
                     tipoMov = "CASINO WIN";
+                }
+
+                // SI HAY EVENTO DOBLE, DUPLICAMOS EL PREMIO
+                if (eventoGlobalActivo === 'doble' && premio > 0) {
+                    premio = premio * 2;
+                    mensaje = "🔥 ¡EVENTO DOBLE! " + mensaje;
                 }
 
                 // Si ganó, sumamos el premio a su cuenta.
@@ -704,8 +737,8 @@ function cargarListaAdmin() {
                         <td style="color: #f1c40f;">${u.pin}</td>
                         <td style="font-family: monospace;" title="Saldo completo: $${saldoFormateado}">$${saldoDisplay}</td>
                         <td>
-                            <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 100)">+100</button>
-                            <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -100)">-100</button>
+                            <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 1000)">+1K</button>
+                            <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -1000)">-1K</button>
                         </td>
                     `;
             tbody.appendChild(fila);
@@ -721,6 +754,8 @@ function adminModificarSaldo(idUsuario, cantidad) {
         return (saldoActual || 0) + cantidad;
     });
 }
+
+
 
 /**
  * Cierra la sesión activa y detiene los listeners de Firebase para ahorrar memoria.
@@ -976,7 +1011,7 @@ function ejecutarSorteo(fechaHoy) {
 }
 
 /**
- * Intenta robar un porcentaje del saldo a otro usuario.
+ * Inicia el minijuego de hackeo.
  */
 function intentarHackear(idDestinatario, nombreDestinatario) {
     const ahora = Date.now();
@@ -989,40 +1024,135 @@ function intentarHackear(idDestinatario, nombreDestinatario) {
         return;
     }
 
-    ultimoHackAttempt = ahora;
-
     db.ref('usuarios/' + idDestinatario).once('value').then(snap => {
         const target = snap.val();
         if (!target) return;
 
-        // El firewall protege totalmente al usuario de cualquier intento de hackeo.
+        // El firewall protege totalmente al usuario
         const firewallHasta = target.firewallHasta || 0;
         if (firewallHasta > ahora) {
-            alert(`⛔ HACK FALLIDO: ${nombreDestinatario} tiene un Ciber-Escudo activo 🛡️.`);
+            alert("HACKEO DENEGADO: El usuario tiene protección.");
             return;
         }
 
-        // Tienes un 10% de probabilidad de éxito. ¡Es difícil!
-        const exito = Math.random() < 0.10;
+        // --- FASE 1: ESCANEO DE VULNERABILIDAD (Probabilidad) ---
+        const scanRoll = Math.random();
+        const probabilidadEscaneo = scanRoll < 0.40;
 
-        if (exito) {
-            const robo = Math.floor(target.saldo * 0.05); // Robas el 5% de su fortuna.
-            if (robo < 1) {
-                alert(`🤡 Intentaste hackear a ${nombreDestinatario} pero no tiene casi dinero. Robo fallido.`);
-                return;
-            }
-
-            // Realizamos la transferencia de forma atómica.
-            db.ref('usuarios/' + idDestinatario + '/saldo').transaction(s => (s || 0) - robo);
-            db.ref('usuarios/' + idAtacante + '/saldo').transaction(s => (s || 0) + robo);
-
-            registrarMovimiento(idAtacante, "HACK SUCCESS", robo, "Hackeo exitoso a " + nombreDestinatario, true);
-            registrarMovimiento(idDestinatario, "HACKED", robo, "¡FUISTE HACKEADA POR " + usuarioActualNombre + "!", false);
-
-            alert(`🏴‍☠️ ¡HACKEO EXITOSO! Has robado $${robo} de la cuenta de ${nombreDestinatario}.`);
-        } else {
-            alert(`❌ HACK FALLIDO: Has sido detectado por los sistemas de ${nombreDestinatario}.`);
+        if (!probabilidadEscaneo) {
+            alert("HACKEO DENEGADO.");
+            ultimoHackAttempt = ahora;
+            return;
         }
+
+        // --- FASE 2: INICIAR MINIJUEGO (Si el escaneo fue exitoso) ---
+        ultimoHackAttempt = ahora;
+        hackerTargetId = idDestinatario;
+        hackerTargetNombre = nombreDestinatario;
+        hackerSecuenciaActual = "";
+
+        // Generar secuencia de 6 números aleatorios
+        hackerSecuenciaTarget = "";
+        for (let i = 0; i < 6; i++) {
+            hackerSecuenciaTarget += Math.floor(Math.random() * 10).toString();
+        }
+
+        // Mostrar pantalla y configurar UI
+        mostrarPantalla('pantalla-hackeo');
+        mezclarTecladoHacker(); // Mezclar los botones antes de mostrar
+        document.getElementById('hackerTargetName').textContent = nombreDestinatario;
+        document.getElementById('hackerCodeInput').textContent = hackerSecuenciaTarget;
+        document.getElementById('hackerLogs').innerHTML = `> Initializing bypass...<br>> Target: ${nombreDestinatario}<br>> Sequence generated.`;
+
+        // Iniciar temporizador (8 segundos)
+        let tiempoRestante = 100;
+        const progress = document.getElementById('hackerProgress');
+        if (hackerTimerInterval) clearInterval(hackerTimerInterval);
+
+        hackerTimerInterval = setInterval(() => {
+            tiempoRestante -= 1.25; // 100 / (8s * 10 iteraciones por segundo)
+            progress.style.width = tiempoRestante + "%";
+
+            if (tiempoRestante <= 0) {
+                finalizarHackeo(false, "¡TIEMPO AGOTADO!");
+            }
+        }, 100);
+    });
+}
+
+/**
+ * Procesa cada clic en el teclado del hacker.
+ */
+function teclearHacker(num) {
+    hackerSecuenciaActual += num.toString();
+
+    // Feedback visual en los logs
+    const logs = document.getElementById('hackerLogs');
+    logs.innerHTML += `<br>> Input: ${num} OK.`;
+
+    // Verificar si falló en algún número
+    const index = hackerSecuenciaActual.length - 1;
+    if (hackerSecuenciaActual[index] !== hackerSecuenciaTarget[index]) {
+        finalizarHackeo(false, "¡ERROR EN LA SECUENCIA!");
+        return;
+    }
+
+    // Si completó la secuencia
+    if (hackerSecuenciaActual === hackerSecuenciaTarget) {
+        finalizarHackeo(true);
+    }
+}
+
+/**
+ * Termina el minijuego y procesa el resultado.
+ */
+function finalizarHackeo(exito, motivo = "") {
+    clearInterval(hackerTimerInterval);
+    const idAtacante = limpiarNombre(usuarioActualNombre);
+
+    if (exito) {
+        db.ref('usuarios/' + hackerTargetId).once('value').then(snap => {
+            const target = snap.val();
+            const robo = Math.floor(target.saldo * 0.10); // Robas el 10% (más que antes por ser difícil)
+
+            if (robo < 10) {
+                alert("🏴‍☠️ Hackeo exitoso, pero el usuario es pobre. No robaste nada.");
+            } else {
+                db.ref('usuarios/' + hackerTargetId + '/saldo').transaction(s => (s || 0) - robo);
+                db.ref('usuarios/' + idAtacante + '/saldo').transaction(s => (s || 0) + robo);
+
+                registrarMovimiento(idAtacante, "HACK SUCCESS", robo, "Hackeo exitoso a " + hackerTargetNombre, true);
+                registrarMovimiento(hackerTargetId, "HACKED!", robo, "¡Fuiste hackeada por " + usuarioActualNombre + "!", false);
+                alert(`HACKEO EXITOSO: Has robado $${robo}.`);
+            }
+            mostrarPantalla('pantalla-ranking');
+        });
+    } else {
+        alert("HACKEO DENEGADO.");
+        mostrarPantalla('pantalla-ranking');
+    }
+}
+
+/**
+ * Desordena aleatoriamente los botones del teclado hacker.
+ */
+function mezclarTecladoHacker() {
+    const keypad = document.querySelector('.hacker-keypad');
+    const botones = Array.from(keypad.children);
+
+    // Algoritmo de Fisher-Yates para desordenar el array
+    for (let i = botones.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [botones[i], botones[j]] = [botones[j], botones[i]];
+    }
+
+    // Volver a añadir los botones en el nuevo orden
+    keypad.innerHTML = '';
+    botones.forEach(btn => {
+        // Asegurarse de que el botón de 0 siga ocupando 3 columnas si es necesario, 
+        // o mejor dejar que todos sean iguales para que el caos sea total.
+        btn.style.gridColumn = 'auto';
+        keypad.appendChild(btn);
     });
 }
 
@@ -1343,33 +1473,436 @@ function finalizarDuelo(idDuelo, duelo) {
         ganadorId = duelo.idOponente;
         ganadorNombre = duelo.oponente;
     } else {
-        // Empate.
         ganadorId = "empate";
     }
 
-    db.ref('duelos/' + idDuelo + '/estado').set('finalizado').then(() => {
-        const premio = duelo.apuesta * 2;
-
-        if (ganadorId === "empate") {
-            document.getElementById('txtEstadoDuelo').textContent = "¡EMPATE! Se devuelve el dinero.";
-            db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => s + duelo.apuesta);
-            db.ref('usuarios/' + duelo.idOponente + '/saldo').transaction(s => s + duelo.apuesta);
-        } else {
-            document.getElementById('txtEstadoDuelo').textContent = "¡GANADOR: " + ganadorNombre.toUpperCase() + "! 🏆";
-            db.ref('usuarios/' + ganadorId + '/saldo').transaction(s => s + premio);
-            registrarMovimiento(ganadorId, "DUELO WIN", premio, "Ganaste duelo vs " + (ganadorId === duelo.idRetador ? duelo.oponente : duelo.retador), true);
-        }
-
-        // Limpiar el duelo después de 10 segundos.
-        setTimeout(() => {
-            if (dueloActualId === idDuelo) {
-                mostrarPantalla('pantalla-cajero');
-                db.ref('duelos/' + idDuelo).remove();
+    // USAR TRANSACCIÓN PARA EL ESTADO: Esto evita que el premio se pague múltiples veces
+    db.ref('duelos/' + idDuelo + '/estado').transaction(estadoActual => {
+        if (estadoActual === 'aceptado') return 'finalizado';
+        return; // Si ya no es 'aceptado', abortamos la transacción
+    }, (error, committed) => {
+        if (committed) {
+            const premio = duelo.apuesta * 2;
+            if (ganadorId === "empate") {
+                document.getElementById('txtEstadoDuelo').textContent = "¡EMPATE! Se devuelve el dinero.";
+                db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => (s || 0) + duelo.apuesta);
+                db.ref('usuarios/' + duelo.idOponente + '/saldo').transaction(s => (s || 0) + duelo.apuesta);
+            } else {
+                document.getElementById('txtEstadoDuelo').textContent = "¡GANADOR: " + ganadorNombre.toUpperCase() + "! 🏆";
+                db.ref('usuarios/' + ganadorId + '/saldo').transaction(s => (s || 0) + premio);
+                registrarMovimiento(ganadorId, "DUELO WIN", premio, "Ganaste duelo vs " + (ganadorId === duelo.idRetador ? duelo.oponente : duelo.retador), true);
             }
-        }, 10000);
+
+            // Limpiar el duelo después de 10 segundos
+            setTimeout(() => {
+                db.ref('duelos/' + idDuelo).remove();
+                if (dueloActualId === idDuelo) mostrarPantalla('pantalla-cajero');
+            }, 10000);
+        }
     });
 }
 
+// --- LÓGICA DE EVENTOS GLOBALES ---
+
+/**
+ * Escucha en tiempo real si el administrador activa un evento para todos.
+ */
+function escucharEventosGlobales() {
+    db.ref('evento_global').on('value', snap => {
+        const data = snap.val();
+        const banner = document.getElementById('bannerEvento');
+        const txt = document.getElementById('txtEvento');
+
+        if (data && data.activo) {
+            eventoGlobalActivo = data.tipo;
+            banner.classList.add('active');
+
+            if (data.tipo === 'lluvia') {
+                txt.textContent = "💰 ¡LLUVIA DE DINERO ACTIVA! 💰";
+                // Lógica especial de lluvia: se ejecuta una vez cuando detectas el evento
+                verificarRegaloLluvia(data.id);
+            } else if (data.tipo === 'crash') {
+                txt.textContent = "📉 ¡CRIPTO CRASH! PRECIOS POR EL SUELO 📉";
+            } else if (data.tipo === 'doble') {
+                txt.textContent = "🎰 ¡EVENTO: DOBLE PREMIO EN CASINO! 🎰";
+            }
+        } else {
+            eventoGlobalActivo = null;
+            banner.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Evita que un usuario reciba el dinero de la lluvia varias veces.
+ */
+function verificarRegaloLluvia(idEvento) {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    const path = `usuarios/${idUsuario}/eventos_recibidos/${idEvento}`;
+
+    // Usar transacción para asegurar que solo se reciba UNA vez incluso si el evento parpadea
+    db.ref(path).transaction(actual => {
+        if (actual === null) return true; // Si no existe, lo marcamos como recibido
+        return; // Si ya existe, no hacemos nada
+    }, (error, committed) => {
+        if (committed) {
+            const regalo = 5000;
+            db.ref(`usuarios/${idUsuario}/saldo`).transaction(s => (s || 0) + regalo);
+            registrarMovimiento(idUsuario, "EVENTO LLUVIA", regalo, "Regalo por Evento Global 💰", true);
+            alert("🎊 ¡HAS RECIBIDO $5,000 POR LA LLUVIA DE DINERO! 🎊");
+        }
+    });
+}
+
+/**
+ * (Solo Admin) Activa un evento para todos los jugadores.
+ */
+function adminLanzarEvento(tipo) {
+    const idEvento = "env_" + Date.now();
+
+    // Lógica inmediata para Cripto Crash: Bajar el precio en la base de datos AHORA
+    if (tipo === 'crash') {
+        const precioCrash = (Math.random() * 2) + 1; // Forzar precio entre $1 y $3
+        db.ref('mercado').update({
+            precio: precioCrash,
+            ultimaActualizacion: firebase.database.ServerValue.TIMESTAMP
+        });
+    }
+
+    // Lanzar el evento global para activar banners y efectos
+    db.ref('evento_global').set({
+        activo: true,
+        tipo: tipo,
+        id: idEvento,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        alert("¡Evento '" + tipo.toUpperCase() + "' activado globalmente!");
+    });
+}
+
+/**
+ * (Solo Admin) Detiene cualquier evento activo.
+ */
+function adminTerminarEvento() {
+    db.ref('evento_global').update({
+        activo: false
+    }).then(() => {
+        alert("Evento finalizado.");
+    });
+}
+
+
+
+
+
+
+// --- LÓGICA DE BUSCAMINAS (MINES) ---
+
+function abrirMinas() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+        document.getElementById('saldoMinasDisplay').textContent = (snap.val() || 0).toFixed(2);
+    });
+
+    // Resetear interfaz visual
+    const grid = document.getElementById('gridMinas');
+    grid.innerHTML = '';
+    for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'minas-cell';
+        grid.appendChild(cell);
+    }
+    grid.style.pointerEvents = 'none';
+    grid.style.opacity = '0.5';
+    document.getElementById('vallaControlesMinas').style.display = 'none';
+    document.getElementById('btnStartMinas').disabled = false;
+    document.getElementById('btnStartMinas').style.opacity = '1';
+
+    mostrarPantalla('pantalla-minas');
+}
+
+function iniciarJuegoMinas() {
+    const apuesta = parseFloat(document.getElementById('betMinas').value);
+    const numBombas = parseInt(document.getElementById('numMinas').value);
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    if (isNaN(apuesta) || apuesta < 10) return alert("La apuesta mínima es $10");
+    if (isNaN(numBombas) || numBombas < 1 || numBombas > 24) return alert("Elige entre 1 y 24 bombas");
+
+    db.ref('usuarios/' + idUsuario).transaction(user => {
+        if (user && user.saldo >= apuesta) {
+            user.saldo -= apuesta;
+            return user;
+        }
+    }, (error, committed) => {
+        if (committed) {
+            minasJuegoActivo = true;
+            minasApuestaActual = apuesta;
+            minasBombasTotales = numBombas;
+            minasDiamantesEncontrados = 0;
+            minasMultiplicador = 1;
+
+            // Preparar tablero
+            minasTablero = new Array(25).fill(0); // 0 = Diamante
+            let bombasPuestas = 0;
+            while (bombasPuestas < numBombas) {
+                let r = Math.floor(Math.random() * 25);
+                if (minasTablero[r] === 0) {
+                    minasTablero[r] = 1; // 1 = Bomba
+                    bombasPuestas++;
+                }
+            }
+
+            // Actualizar Interfaz
+            db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+                document.getElementById('saldoMinasDisplay').textContent = snap.val().toFixed(2);
+            });
+
+            const grid = document.getElementById('gridMinas');
+            grid.innerHTML = '';
+            for (let i = 0; i < 25; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'minas-cell';
+                cell.onclick = () => revelarCeldaMinas(i, cell);
+                grid.appendChild(cell);
+            }
+            grid.style.pointerEvents = 'auto';
+            grid.style.opacity = '1';
+
+            document.getElementById('btnStartMinas').disabled = true;
+            document.getElementById('btnStartMinas').style.opacity = '0.5';
+            document.getElementById('vallaControlesMinas').style.display = 'block';
+            document.getElementById('txtMultiMinas').textContent = "1.00x";
+            document.getElementById('btnCashoutMinas').textContent = "RECOGER $0.00";
+            document.getElementById('btnCashoutMinas').disabled = true;
+
+            registrarMovimiento(idUsuario, "MINAS APUESTA", apuesta, `Inició Buscaminas (${numBombas} bombas)`, false);
+        } else {
+            alert("No tienes saldo suficiente.");
+        }
+    });
+}
+
+function revelarCeldaMinas(idx, el) {
+    if (!minasJuegoActivo || el.classList.contains('revealed')) return;
+
+    el.classList.add('revealed');
+
+    if (minasTablero[idx] === 1) {
+        // BOMBA - Perdió
+        el.classList.add('mine');
+        el.textContent = '💣';
+        terminarJuegoMinas(false);
+    } else {
+        // DIAMANTE - Sigue jugando
+        el.classList.add('diamond');
+        el.textContent = '💎';
+        minasDiamantesEncontrados++;
+
+        // Calcular nuevo multiplicador
+        minasMultiplicador = calcularMultiplicadorMinas(minasDiamantesEncontrados, minasBombasTotales);
+        const premioActual = minasApuestaActual * minasMultiplicador;
+
+        document.getElementById('txtMultiMinas').textContent = minasMultiplicador.toFixed(2) + "x";
+        document.getElementById('btnCashoutMinas').textContent = `RECOGER $${premioActual.toFixed(2)}`;
+        document.getElementById('btnCashoutMinas').disabled = false;
+
+        // Si encontró todos los diamantes (poco probable pero posible)
+        if (minasDiamantesEncontrados === (25 - minasBombasTotales)) {
+            cobrarMinas();
+        }
+    }
+}
+
+function calcularMultiplicadorMinas(gemas, bombas) {
+    // Fórmula de probabilidad: ( (25-bombas)! / (25-bombas-gemas)! ) / ( 25! / (25-gemas)! )
+    function factorial(n) {
+        if (n === 0) return 1;
+        let res = 1;
+        for (let i = 2; i <= n; i++) res *= i;
+        return res;
+    }
+    function combinations(n, k) {
+        if (k > n) return 0;
+        if (k === 0 || k === n) return 1;
+        // Simplificado para evitar factoriales gigantes que desbordan JS
+        let res = 1;
+        for (let i = 1; i <= k; i++) {
+            res = res * (n - i + 1) / i;
+        }
+        return res;
+    }
+
+    const prob = combinations(25 - bombas, gemas) / combinations(25, gemas);
+    return (0.97 / prob); // 3% de ventaja para la casa
+}
+
+function cobrarMinas() {
+    if (!minasJuegoActivo || minasDiamantesEncontrados === 0) return;
+
+    const premio = minasApuestaActual * minasMultiplicador;
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    db.ref('usuarios/' + idUsuario + '/saldo').transaction(s => (s || 0) + premio);
+    registrarMovimiento(idUsuario, "MINAS PREMIO", premio, `Ganó en Buscaminas (${minasDiamantesEncontrados} gemas)`, true);
+
+    alert(`💰 ¡FELICIDADES! Has cobrado $${premio.toFixed(2)} (${minasMultiplicador.toFixed(2)}x)`);
+    terminarJuegoMinas(true);
+}
+
+function terminarJuegoMinas(ganado) {
+    minasJuegoActivo = false;
+    const grid = document.getElementById('gridMinas');
+    grid.style.pointerEvents = 'none';
+
+    // Revelar todas las minas que faltaban
+    const cells = grid.getElementsByClassName('minas-cell');
+    for (let i = 0; i < 25; i++) {
+        if (minasTablero[i] === 1 && !cells[i].classList.contains('revealed')) {
+            cells[i].classList.add('revealed', 'mine');
+            cells[i].textContent = '💣';
+            cells[i].style.opacity = '0.5';
+        }
+    }
+
+    if (!ganado) {
+        alert("💥 ¡BOOOM! Pisaste una mina. Perdiste tu apuesta.");
+    }
+
+    document.getElementById('btnStartMinas').disabled = false;
+    document.getElementById('btnStartMinas').style.opacity = '1';
+    document.getElementById('btnCashoutMinas').disabled = true;
+
+    // Actualizar saldo visual
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+        document.getElementById('saldoMinasDisplay').textContent = snap.val().toFixed(2);
+    });
+}
+
+// --- LÓGICA DEL GRAN ROBO COOPERATIVO ---
+
+function abrirRobo() {
+    mostrarPantalla('pantalla-robo');
+
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    const bovedaRef = db.ref('banco_central');
+
+    // Registrarse como hacker activo (presencia temporal)
+    const miHackerRef = bovedaRef.child('contribuidores').child(idUsuario);
+    miHackerRef.set({
+        nombre: usuarioActualNombre,
+        ultimoClick: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    // Limpiar rastro al desconectarse o cerrar
+    miHackerRef.onDisconnect().remove();
+
+    if (!roboEscuchandoBoveda) {
+        roboEscuchandoBoveda = true;
+
+        bovedaRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) {
+                // Inicializar boveda si no existe
+                bovedaRef.set({
+                    monto: 100000,
+                    progreso: 0,
+                    abierta: false
+                });
+                return;
+            }
+
+            // Actualizar interfaz
+            document.getElementById('txtBovedaMonto').textContent = `$${formatearNumero(data.monto || 0)}`;
+            const progreso = data.progreso || 0;
+            document.getElementById('roboProgressBar').style.width = progreso + "%";
+            document.getElementById('txtRoboProgreso').textContent = Math.floor(progreso) + "% completado";
+
+            // Visual de la puerta
+            const vaultDoor = document.getElementById('vaultDoor');
+            if (progreso >= 100) {
+                vaultDoor.classList.add('open');
+                vaultDoor.textContent = '🔓';
+                if (!data.abierta) {
+                    procesarRoboExitoso(data.monto, data.contribuidores);
+                }
+            } else {
+                vaultDoor.classList.remove('open');
+                vaultDoor.textContent = '💰';
+            }
+
+            // Lista de hackers activos (mostrar últimos 10)
+            const ul = document.getElementById('ulHackers');
+            ul.innerHTML = '';
+            if (data.contribuidores) {
+                const ahora = Date.now();
+                Object.values(data.contribuidores).forEach(h => {
+                    // Solo mostrar si clickeó hace menos de 10 segundos
+                    if (ahora - h.ultimoClick < 10000) {
+                        const li = document.createElement('li');
+                        li.textContent = `💻 ${h.nombre} está hackeando...`;
+                        ul.appendChild(li);
+                    }
+                });
+            }
+        });
+    }
+}
+
+function hackearBoveda() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    const bovedaRef = db.ref('banco_central');
+
+    // 1. Actualizar mi marca de tiempo
+    bovedaRef.child('contribuidores').child(idUsuario).update({
+        ultimoClick: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    // 2. Aumentar progreso compartido
+    bovedaRef.child('progreso').transaction(actual => {
+        if (actual >= 100) return 100;
+        // El progreso sube
+        return (actual || 0) + 0.5;
+    });
+}
+
+function procesarRoboExitoso(montoTotal, contribuidores) {
+    const bovedaRef = db.ref('banco_central');
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    // Marcar boveda como abierta para que solo un cliente procese el premio
+    bovedaRef.child('abierta').transaction(estado => {
+        if (estado === true) return; // Ya alguien lo está procesando
+        return true;
+    }, (error, committed) => {
+        if (committed) {
+            // Somos el cliente encargado de repartir
+            if (!contribuidores) return reiniciarBoveda();
+
+            const listaHackersIds = Object.keys(contribuidores);
+            const premioPorPersona = montoTotal / listaHackersIds.length;
+
+            listaHackersIds.forEach(idH => {
+                db.ref(`usuarios/${idH}/saldo`).transaction(s => (s || 0) + premioPorPersona);
+                registrarMovimiento(idH, "BOTÍN BANCUARIO", premioPorPersona, "Reparto del Gran Robo 🚨", true);
+            });
+
+            alert(`🎊 ¡BOVEDA ABIERTA! Se repartieron $${formatearNumero(montoTotal)} entre ${listaHackersIds.length} hackers.`);
+
+            // Esperar un poco y reiniciar
+            setTimeout(reiniciarBoveda, 5000);
+        }
+    });
+}
+
+function reiniciarBoveda() {
+    db.ref('banco_central').update({
+        progreso: 0,
+        abierta: false,
+        monto: Math.floor(Math.random() * 500000) + 200000 // Nuevo botín aleatorio entre 200k y 700k
+    });
+}
 
 
 

@@ -25,6 +25,11 @@
             <p style="font-size: 0.8rem;">Pega tu configuración aquí abajo en el código o pide ayuda para generarla.</p>
         </div>
 
+        <!-- BANNER DE EVENTOS GLOBALES: Se muestra cuando la Admin activa algo -->
+        <div id="bannerEvento" class="banner-evento">
+            <span id="txtEvento">✨ EVENTO ACTIVO ✨</span>
+        </div>
+
         <!-- PANTALLA 1: REGISTRO - Permite a nuevos usuarios crear una cuenta -->
         <div class="pantalla hidden" id="pantalla-registro">
             <h1>🏦 BANCO GAMER 🏦</h1>
@@ -111,6 +116,14 @@
                     style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #f39c12, #e67e22); color: #2c3e50; border: 2px solid #fff; font-size: 1rem; padding: 12px; font-weight: bold;">
                     🎟️ SORTEO DIARIO (2 PM)
                 </button>
+                <button onclick="abrirMinas()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #2c3e50, #000); color: #fff; border: 2px solid #f1c40f; font-size: 1rem; padding: 12px; font-weight: bold;">
+                    💣 BUSCAMINAS GAMER
+                </button>
+                <button onclick="abrirRobo()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #c0392b, #000); color: #fff; border: 2px solid #f1c40f; font-size: 1rem; padding: 12px; font-weight: bold;">
+                    🚨 GRAN ROBO AL BANCO
+                </button>
             </div>
 
             <!-- Sección de Historial: Muestra los últimos movimientos de la cuenta -->
@@ -124,6 +137,87 @@
             <button onclick="cerrarSesion()"
                 style="margin-top: 20px; width: 100%; background-color: #95a5a6; font-size: 0.9rem; padding: 10px;">CERRAR
                 SESIÓN</button>
+        </div>
+
+        <!-- PANTALLA: EL GRAN ROBO (COOPERATIVO) -->
+        <div class="pantalla hidden" id="pantalla-robo">
+            <h1>🚨 ROBO AL BANCO 🚨</h1>
+            <p style="font-size: 0.8rem;">¡Colabora con otros para abrir la bóveda!</p>
+
+            <div class="vault-container">
+                <div id="vaultDoor" class="vault-door">💰</div>
+                <div class="vault-info">
+                    <p style="margin: 0;">BÓVEDA TOTAL:</p>
+                    <h2 id="txtBovedaMonto">$0.00</h2>
+                </div>
+            </div>
+
+            <!-- Barra de progreso compartida -->
+            <div class="robo-progress-container">
+                <div id="roboProgressBar" class="robo-progress-bar" style="width: 0%;"></div>
+                <span id="txtRoboProgreso" class="robo-progress-text">0% completado</span>
+            </div>
+
+            <p style="font-size: 0.7rem; margin: 10px 0;">¡Dale al botón de "HACK" rápido! Cuanta más gente participe al
+                mismo tiempo, más rápido sube.</p>
+
+            <button id="btnHackRobo" onclick="hackearBoveda()"
+                style="width: 100%; background: #c0392b; font-size: 1.2rem; padding: 15px; border: 2px solid #fff;">
+                🔌 HACKEAR SISTEMA
+            </button>
+
+            <div id="listaHackersRobo"
+                style="margin-top: 15px; font-size: 0.75rem; text-align: left; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px; max-height: 80px; overflow-y: auto;">
+                <strong>Hackers activos:</strong>
+                <ul id="ulHackers" style="margin: 5px 0; padding-left: 15px;"></ul>
+            </div>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')"
+                style="margin-top: 15px; width: 100%; background-color: #7f8c8d; font-size: 0.8rem;">
+                Volver al Banco
+            </button>
+        </div>
+
+        <!-- PANTALLA: BUSCAMINAS (MINES) -->
+        <div class="pantalla hidden" id="pantalla-minas">
+            <h1>💣 BUSCAMINAS 💎</h1>
+            <p>¡Evita las bombas y junta diamantes!</p>
+
+            <div class="info-tablero" style="border-bottom: none; margin-bottom: 5px;">
+                <p>Saldo: 💰 <span id="saldoMinasDisplay">---</span></p>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.7rem;">Apuesta:</label>
+                        <input type="number" id="betMinas" value="100" min="10" style="width: 80%; margin: 2px auto;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.7rem;">Bombas (1-24):</label>
+                        <input type="number" id="numMinas" value="3" min="1" max="24"
+                            style="width: 80%; margin: 2px auto;">
+                    </div>
+                </div>
+                <button id="btnStartMinas" onclick="iniciarJuegoMinas()"
+                    style="width: 100%; background: #27ae60; font-size: 1rem; padding: 10px;">¡JUGAR!</button>
+            </div>
+
+            <div id="gridMinas" class="minas-grid" style="pointer-events: none; opacity: 0.5;">
+                <!-- 25 celdas generadas por JS -->
+            </div>
+
+            <div id="vallaControlesMinas" style="display: none; margin-top: 15px;">
+                <p style="margin: 0; font-weight: bold; color: #f1c40f;">Multiplicador: <span
+                        id="txtMultiMinas">1.00x</span></p>
+                <button onclick="cobrarMinas()" id="btnCashoutMinas"
+                    style="width: 100%; background: #2ecc71; margin-top: 5px;">RECOGER PREMIO 💰</button>
+            </div>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')" id="btnVolverMinas"
+                style="margin-top: 20px; width: 100%; background-color: #7f8c8d; font-size: 0.9rem;">
+                Volver al Banco
+            </button>
         </div>
 
         <!-- PANTALLA 5: CASINO - Juego de tragamonedas -->
@@ -199,7 +293,8 @@
 
             <div class="lottery-info">
                 <p style="margin: 0; font-weight: bold; color: #f1c40f;">PRECIO: $2,000</p>
-                <p style="margin: 5px 0 0 0; font-size: 0.8rem;">Cuantos más boletos compres, más chances tienes.</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.8rem;">Cuantos más boletos compres, más chances
+                    tienes.</p>
             </div>
 
             <button onclick="comprarBoleto()"
@@ -263,6 +358,35 @@
     <!-- CONTENEDOR DE NOTIFICACIONES (Retos entrantes) -->
     <div id="notificaciones-duelo" style="position: fixed; top: 20px; right: 20px; z-index: 1000; width: 250px;"></div>
 
+    <!-- PANTALLA: MINIJUEGO DE HACKEO -->
+    <div class="pantalla hidden" id="pantalla-hackeo">
+        <h1>💀 TERMINAL HACKER 💀</h1>
+        <div class="hacker-terminal">
+            <p id="hackerLogs">> Initializing bypass...<br>> Target: <span id="hackerTargetName">---</span><br>>
+                Decrypting security key...</p>
+        </div>
+
+        <div class="hacker-code-display" id="hackerCodeInput">------</div>
+        <p style="font-size: 0.8rem; color: #0f0;">¡REPITE LA SECUENCIA!</p>
+
+        <div class="hacker-keypad">
+            <button class="btn-hacker-key" onclick="teclearHacker(1)">1</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(2)">2</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(3)">3</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(4)">4</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(5)">5</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(6)">6</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(7)">7</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(8)">8</button>
+            <button class="btn-hacker-key" onclick="teclearHacker(9)">9</button>
+            <button class="btn-hacker-key" style="grid-column: span 3;" onclick="teclearHacker(0)">0</button>
+        </div>
+
+        <div class="hacker-timer-bar">
+            <div id="hackerProgress"></div>
+        </div>
+    </div>
+
 
     <!-- PANTALLA 4: ADMIN - Panel de administración para gestionar usuarios y solicitudes -->
     <div id="contenedor-admin" class="hidden">
@@ -300,6 +424,25 @@
                     <!-- Solicitudes enviadas por los usuarios -->
                 </tbody>
             </table>
+
+
+
+            <!-- PANEL DE EVENTOS GLOBALES -->
+            <h1 style="margin: 20px 0 10px 0; font-size: 1.3rem;">📢 EVENTOS GLOBALES</h1>
+            <div class="admin-events-grid">
+                <button class="btn-event" style="background: #e67e22;" onclick="adminLanzarEvento('lluvia')">💰
+                    LLUVIA
+                    ($)</button>
+                <button class="btn-event" style="background: #e74c3c;" onclick="adminLanzarEvento('crash')">📉
+                    CRIPTO
+                    CRASH</button>
+                <button class="btn-event" style="background: #27ae60;" onclick="adminLanzarEvento('doble')">🎰
+                    DOBLE
+                    PREMIO</button>
+                <button class="btn-event" style="background: #c0392b;" onclick="adminTerminarEvento()">🛑 PARAR
+                    EVENTO</button>
+            </div>
+
             <button onclick="cerrarSesion()"
                 style="margin-top: 15px; width: 100%; background-color: #95a5a6; font-size: 0.85rem; padding: 10px;">SALIR
                 DEL MODO PRO</button>
