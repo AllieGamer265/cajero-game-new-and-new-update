@@ -324,16 +324,24 @@ function iniciarMercado() {
 }
 
 /**
- * Genera una variación aleatoria en el precio de la moneda.
+ * Genera una variación aleatoria en el precio de la moneda con sesgo positivo.
  */
 function calcularNuevoPrecio(precioAnterior) {
-    // El precio puede variar entre -5% y +5% en cada actualización.
-    const variacion = (Math.random() * 0.10) - 0.05;
+    // Si el precio está muy bajo (menos de $5), le damos un empuje extra para que "rebote"
+    let minVar = -0.04; // -4%
+    let maxVar = 0.06;  // +6% (Sesgo positivo para que tienda a subir a largo plazo)
+
+    if (precioAnterior < 5) {
+        minVar = -0.02; // Casi no baja si ya está en el suelo
+        maxVar = 0.15;  // ¡Puede subir hasta un 15% de golpe!
+    }
+
+    const variacion = (Math.random() * (maxVar - minVar)) + minVar;
     let nuevoPrecio = precioAnterior * (1 + variacion);
 
-    // Mantenemos el precio dentro de rangos razonables.
-    if (nuevoPrecio < 1) nuevoPrecio = 1;
-    if (nuevoPrecio > 100) nuevoPrecio = 100;
+    // Mantenemos el precio dentro de rangos emocionantes.
+    if (nuevoPrecio < 1) nuevoPrecio = 1.10; // Evitamos el 1 exacto para que siempre tenga movimiento
+    if (nuevoPrecio > 1000) nuevoPrecio = 1000; // ¡Ahora puede valer hasta $1,000!
 
     db.ref('mercado').set({
         precio: nuevoPrecio,
