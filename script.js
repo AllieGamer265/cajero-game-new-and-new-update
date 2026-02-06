@@ -1815,10 +1815,10 @@ function abrirRobo() {
 
         bovedaRef.on('value', (snapshot) => {
             const data = snapshot.val();
-            if (!data) {
-                // Inicializar boveda si no existe
-                bovedaRef.set({
-                    monto: 100000,
+            if (!data || data.monto === undefined || data.monto === null || data.monto === 0) {
+                // Inicializar boveda si no existe o está corrupta
+                bovedaRef.update({
+                    monto: 250000,
                     progreso: 0,
                     abierta: false
                 });
@@ -1837,7 +1837,7 @@ function abrirRobo() {
                 vaultDoor.classList.add('open');
                 vaultDoor.textContent = '🔓';
                 if (!data.abierta) {
-                    procesarRoboExitoso(data.monto, data.contribuidores);
+                    procesarRoboExitoso(data.monto || 250000, data.contribuidores);
                 }
             } else {
                 vaultDoor.classList.remove('open');
@@ -1872,10 +1872,26 @@ function hackearBoveda() {
     });
 
     // 2. Aumentar progreso compartido
-    bovedaRef.child('progreso').transaction(actual => {
-        if (actual >= 100) return 100;
-        // El progreso sube
-        return (actual || 0) + 0.5;
+    bovedaRef.once('value').then(snap => {
+        const data = snap.val();
+        if (data && data.progreso >= 100) {
+            // Si ya está al 100% pero no se ha abierto (o se quedó trabado)
+            if (!data.abierta) {
+                procesarRoboExitoso(data.monto || 250000, data.contribuidores);
+            } else {
+                // Si ya está abierta pero nadie la ha reseteado, intentamos forzar reset
+                // Solo si han pasado más de 15 segundos (aproximadamente)
+                // Usamos un pequeño check para no spamear resets
+                if (Math.random() > 0.8) reiniciarBoveda();
+            }
+            return;
+        }
+
+        bovedaRef.child('progreso').transaction(actual => {
+            if (actual >= 100) return 100;
+            // El progreso sube segun cuanta gente hay
+            return (actual || 0) + 0.5;
+        });
     });
 }
 
@@ -1890,20 +1906,40 @@ function procesarRoboExitoso(montoTotal, contribuidores) {
     }, (error, committed) => {
         if (committed) {
             // Somos el cliente encargado de repartir
-            if (!contribuidores) return reiniciarBoveda();
+            if (!contribuidores) {
+                reiniciarBoveda();
+                return;
+            }
 
+            const ahora = Date.now();
             const listaHackersIds = Object.keys(contribuidores);
-            const premioPorPersona = montoTotal / listaHackersIds.length;
 
-            listaHackersIds.forEach(idH => {
-                db.ref(`usuarios/${idH}/saldo`).transaction(s => (s || 0) + premioPorPersona);
+            // FILTRAR SOLO HACKERS ACTIVOS (que hayan clickeado en los últimos 3 minutos)
+            const activosIds = listaHackersIds.filter(id => {
+                const h = contribuidores[id];
+                return (ahora - (h.ultimoClick || 0)) < 180000; // 3 minutos
+            });
+
+            if (activosIds.length === 0) {
+                reiniciarBoveda();
+                return;
+            }
+
+            const premioPorPersona = (montoTotal || 250000) / activosIds.length;
+
+            activosIds.forEach(idH => {
+                db.ref(`usuarios/${idH}/saldo`).transaction(s => {
+                    const montoASumar = parseFloat(premioPorPersona);
+                    if (isNaN(montoASumar)) return s;
+                    return (s || 0) + montoASumar;
+                });
                 registrarMovimiento(idH, "BOTÍN BANCUARIO", premioPorPersona, "Reparto del Gran Robo 🚨", true);
             });
 
-            alert(`🎊 ¡BOVEDA ABIERTA! Se repartieron $${formatearNumero(montoTotal)} entre ${listaHackersIds.length} hackers.`);
+            alert(`🎊 ¡BÓVEDA ABIERTA! Se repartieron $${formatearNumero(montoTotal)} entre ${activosIds.length} hackers activos.`);
 
-            // Esperar un poco y reiniciar
-            setTimeout(reiniciarBoveda, 5000);
+            // Reiniciar inmediatamente después de repartir, pero dejar un pequeño margen visual
+            setTimeout(reiniciarBoveda, 4000);
         }
     });
 }
