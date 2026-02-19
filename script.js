@@ -1,17 +1,12 @@
-// --- CONFIGURACIÓN DE FIREBASE ---
-// Estos son los datos necesarios para conectar el juego con la base de datos de Google.
-const firebaseConfig = {
-    apiKey: "AIzaSyApoYon1F85j5A8Olu1mlu4zmZKHwXof5M",
-    authDomain: "cajero-app-gamer-12345.firebaseapp.com",
-    projectId: "cajero-app-gamer-12345",
-    storageBucket: "cajero-app-gamer-12345.firebasestorage.app",
-    messagingSenderId: "608695622951",
-    appId: "1:608695622951:web:4f31e9953519f58e00dd02",
-    // URL de la base de datos en tiempo real.
-    databaseURL: "https://cajero-app-gamer-12345-default-rtdb.firebaseio.com"
-};
+// =============================================================
+// CONFIGURACIÓN: Las claves de Firebase y las credenciales admin
+// ahora están en config.js (excluido de GitHub por .gitignore).
+// config.js debe cargarse ANTES que este script en index.html.
+// =============================================================
 
-// Inicialización de la base de datos Firebase.
+// --- INICIALIZACIÓN DE FIREBASE ---
+// Las variables firebaseConfig, ADMIN_USER y ADMIN_PIN
+// provienen de config.js.
 let db;
 try {
     firebase.initializeApp(firebaseConfig);
@@ -19,13 +14,83 @@ try {
     console.log("Firebase inicializado correctamente");
 } catch (error) {
     console.error("Error inicializando Firebase:", error);
-    alert("⚠️ Error: No se pudo conectar a Firebase. Revisa la configuración en el código.");
+    alert("⚠️ Error: No se pudo conectar a Firebase. Revisa el archivo config.js.");
 }
 
-// --- CREDENCIALES ADMIN ---
-// Usuario y PIN especiales para entrar al panel de administración.
-const ADMIN_USER = "la pro XD";
-const ADMIN_PIN = "2015";
+// =============================================================
+// SEGURIDAD ANTI-XSS: Funciones de display seguro
+// Usamos DOMPurify para sanitizar cualquier dato que venga de
+// Firebase antes de mostrarlo en el DOM.
+// =============================================================
+
+/**
+ * Sanitiza un texto usando DOMPurify. Siempre úsala antes de
+ * insertar datos de Firebase en el HTML.
+ * @param {string} str - El texto a sanitizar.
+ * @returns {string} El texto limpio y seguro.
+ */
+function sanitizar(str) {
+    if (typeof str !== 'string') return String(str || '');
+    // Si DOMPurify está disponible, usarlo.
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(str, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+    }
+    // Fallback manual si DOMPurify no cargó.
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Establece el textContent de un elemento de forma segura 
+ * (no interpreta HTML, protege contra XSS).
+ * @param {string} elementId - El ID del elemento.
+ * @param {string} text - El texto a mostrar.
+ */
+function safeSetText(elementId, text) {
+    const el = document.getElementById(elementId);
+    if (el) el.textContent = String(text || '');
+}
+
+/**
+ * Inserta HTML sanitizado en un elemento usando DOMPurify.
+ * Úsala SOLO cuando necesites renderizar emojis/HTML permitido.
+ * @param {string} elementId - El ID del elemento.
+ * @param {string} html - El HTML a sanitizar e insertar.
+ * @param {object} options - Opciones de DOMPurify.
+ */
+function safeSetHtml(elementId, html, options = {}) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(html, options);
+    } else {
+        // Fallback: solo texto plano
+        el.textContent = html;
+    }
+}
+
+/**
+ * Valida que un nombre de usuario sea seguro (solo letras, números,
+ * espacios y algunos caracteres especiales). Máx 30 caracteres.
+ */
+function validarNombreUsuario(nombre) {
+    if (!nombre || nombre.length > 30) return false;
+    // Permitir letras (incluyendo acentos), números, espacios y guiones
+    const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-_\.XD]+$/i;
+    return regex.test(nombre);
+}
+
+/**
+ * Valida que un monto sea un número positivo y razonable.
+ */
+function validarMonto(monto) {
+    const n = parseFloat(monto);
+    return !isNaN(n) && n > 0 && n <= 1e12;
+}
 
 // --- ESTADO LOCAL ---
 // Variables globales que mantienen el estado actual de la sesión.
@@ -288,10 +353,17 @@ function cargarHistorial(idUsuario) {
         const signo = mov.positivo ? '+' : '-';
         const claseColor = mov.positivo ? 'mov-positivo' : 'mov-negativo';
 
-        li.innerHTML = `
-                    <span>${mov.detalle}</span>
-                    <span class="${claseColor}" style="font-weight:bold;">${signo}$${mov.monto}</span>
-                `;
+        // Usar textContent para evitar XSS en datos del historial
+        const spanDetalle = document.createElement('span');
+        spanDetalle.textContent = mov.detalle;
+
+        const spanMonto = document.createElement('span');
+        spanMonto.className = claseColor;
+        spanMonto.style.fontWeight = 'bold';
+        spanMonto.textContent = `${signo}$${mov.monto}`;
+
+        li.appendChild(spanDetalle);
+        li.appendChild(spanMonto);
         // Insertar al inicio de la lista para que el más nuevo aparezca arriba.
         ul.insertBefore(li, ul.firstChild);
     });
@@ -625,23 +697,60 @@ function verRanking() {
             const tieneFirewall = firewallHasta > Date.now();
 
             // Solo mostramos el botón de hackear si el usuario no somos nosotras mismas.
-            const hackBtnHtml = (user.id !== idUsuarioActual) ?
-                `<button class="btn-hack" onclick="intentarHackear('${user.id}', '${user.nombre}')">HACK</button>
-                 <button class="btn-hack btn-duelo" onclick="intentarRetar('${user.id}', '${user.nombre}')">RETAR ⚔️</button>` : '';
-
-            const shieldHtml = tieneFirewall ? `<span class="firewall-shield" title="Protección Activa">🛡️</span>` : '';
-
+            // Construir el item del ranking de forma segura (anti-XSS)
             const li = document.createElement('li');
             li.className = `rank-item ${claseExtra}`;
-            li.innerHTML = `
-                        <div>
-                            <span class="rank-pos">${icono} ${skinIcono} ${user.nombre} ${shieldHtml}</span>
-                            ${hackBtnHtml}
-                        </div>
-                        <div style="font-family: monospace; font-size: 1.1rem;">
-                            $${formatearNumero(user.saldo)}
-                        </div>
-                    `;
+
+            // Div izquierdo: posición + nombre
+            const divLeft = document.createElement('div');
+
+            const spanPos = document.createElement('span');
+            spanPos.className = 'rank-pos';
+            // textContent es seguro – el emoji/skinIcono son sólo texto Unicode
+            spanPos.textContent = `${icono} ${skinIcono} ${sanitizar(user.nombre)} `;
+
+            if (tieneFirewall) {
+                const shield = document.createElement('span');
+                shield.className = 'firewall-shield';
+                shield.title = 'Protección Activa';
+                shield.textContent = '🛡️';
+                spanPos.appendChild(shield);
+            }
+            divLeft.appendChild(spanPos);
+
+            // Botones de acción (solo si no es el usuario actual)
+            if (user.id !== idUsuarioActual) {
+                const btnHack = document.createElement('button');
+                btnHack.className = 'btn-hack';
+                btnHack.textContent = 'HACK';
+                // Guardamos los datos en dataset para evitar inyección por concatenación
+                btnHack.dataset.targetId = user.id;
+                btnHack.dataset.targetNombre = user.nombre;
+                btnHack.addEventListener('click', function () {
+                    intentarHackear(this.dataset.targetId, this.dataset.targetNombre);
+                });
+
+                const btnDuelo = document.createElement('button');
+                btnDuelo.className = 'btn-hack btn-duelo';
+                btnDuelo.textContent = 'RETAR ⚔️';
+                btnDuelo.dataset.targetId = user.id;
+                btnDuelo.dataset.targetNombre = user.nombre;
+                btnDuelo.addEventListener('click', function () {
+                    intentarRetar(this.dataset.targetId, this.dataset.targetNombre);
+                });
+
+                divLeft.appendChild(btnHack);
+                divLeft.appendChild(btnDuelo);
+            }
+
+            // Div derecho: saldo
+            const divRight = document.createElement('div');
+            divRight.style.fontFamily = 'monospace';
+            divRight.style.fontSize = '1.1rem';
+            divRight.textContent = `$${formatearNumero(user.saldo)}`;
+
+            li.appendChild(divLeft);
+            li.appendChild(divRight);
             lista.appendChild(li);
         });
     });

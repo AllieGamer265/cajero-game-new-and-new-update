@@ -5,11 +5,27 @@
     <!-- Configuración básica del documento y metadatos -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Content Security Policy: Reduce la superficie de ataque XSS -->
+    <!-- Permite scripts solo de fuentes conocidas y de este mismo dominio -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+                   script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com; 
+                   connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data: https:; 
+                   font-src 'self' https:;">
     <title>Simulador de Banco Gamer</title>
 
     <!-- Importación de Firebase: Necesario para la persistencia de datos en la nube -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <!-- DOMPurify: Librería de seguridad anti-XSS para sanitizar datos de Firebase -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"
+        integrity="sha512-H+rglffZ6f5gF7UJgvH4Naa+fGCgjrHKMgoFOGmcPTRwR6oILo5R+gtzNrpDp7+RQrAFVKxuRNdByFb8aBXfQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <!-- Configuración privada (Firebase config + credenciales admin) - ANTES de script.js -->
+    <script src="config.js"></script>
 
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="styles.css">
@@ -452,7 +468,7 @@
     <div class="teclado"></div> <!-- Espacio para teclado virtual (si se implementa) -->
     </div>
 
-    <!-- Lógica de la aplicación -->
+    <!-- Lógica de la aplicación (script.js usa firebaseConfig de config.js) -->
     <script src="script.js"></script>
 
 </body>
