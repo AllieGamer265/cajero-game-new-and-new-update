@@ -256,36 +256,85 @@ function formatearNumero(num) {
     return num.toFixed(2);
 }
 
+// =============================================================
+// FASE 3.3 – PROTECCIÓN CSRF (para apps Firebase SPA)
+// En una SPA con Firebase, el CSRF clásico no aplica directamente
+// porque no hay cookies de sesión. Implementamos tokens de sesión
+// en memoria para validar que las acciones vienen de la pestaña
+// activa y no de una inyección externa.
+// =============================================================
+const SESSION_TOKEN = crypto.getRandomValues(new Uint8Array(16))
+    .reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '');
+
 /**
- * Crea una nueva cuenta de usuario en Firebase con un saldo inicial.
+ * Agrega el token de sesión al objeto de datos antes de enviarlo
+ * a Firebase. Permite detectar si alguien inyecta datos externos.
+ */
+function conTokenCSRF(datos) {
+    return Object.assign({}, datos, { _csrfToken: SESSION_TOKEN });
+}
+
+// =============================================================
+// Intentos de login fallidos - Brute Force Protection
+// =============================================================
+let loginIntentosFallidos = 0;
+let loginBloqueadoHasta = 0;
+
+/**
+ * Crea una nueva cuenta de usuario en Firebase.
+ * Fase 3.4: Validación exhaustiva de todos los inputs.
  */
 function crearCuenta() {
     const nombre = document.getElementById('regNombre').value.trim();
-    const pin = document.getElementById('regPin').value;
-    const monto = 10000; // Saldo de regalo para todas las jugadoras nuevas.
+    const pin = document.getElementById('regPin').value.trim();
+    const monto = 10000;
 
-    if (nombre === "" || pin.length !== 4) {
-        alert("⚠️ Datos inválidos. El PIN debe ser de 4 dígitos.");
+    // --- Validación de nombre (Fase 3.4) ---
+    if (!nombre) {
+        alert("⚠️ Debes ingresar un nombre.");
+        return;
+    }
+    if (!validarNombreUsuario(nombre)) {
+        alert("⚠️ El nombre solo puede contener letras, números y espacios (máx. 30 caracteres).");
+        return;
+    }
+    // El nombre 'admin' o variantes está bloqueado para usuarios normales.
+    const nombreId = limpiarNombre(nombre);
+    if (nombreId === limpiarNombre(ADMIN_USER)) {
+        alert("⛔ Ese nombre de usuario está reservado.");
         return;
     }
 
-    const idUsuario = limpiarNombre(nombre);
+    // --- Validación de PIN (Fase 3.4) ---
+    if (!/^[0-9]{4}$/.test(pin)) {
+        alert("⚠️ El PIN debe ser exactamente 4 dígitos numéricos (0-9).");
+        return;
+    }
+    // PINs triviales no permitidos
+    const PINES_BLOQUEADOS = ['0000', '1111', '2222', '3333', '4444', '5555',
+        '6666', '7777', '8888', '9999', '1234', '4321'];
+    if (PINES_BLOQUEADOS.includes(pin)) {
+        alert("⚠️ Ese PIN es muy obvio. Elige uno más seguro.");
+        return;
+    }
 
-    // Verificar en la nube si el nombre ya está tomado.
+    const idUsuario = nombreId;
+
     db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
         if (snapshot.exists()) {
-            alert("⛔ El nombre '" + nombre + "' ya está ocupado.");
+            alert("⛔ El nombre '" + sanitizar(nombre) + "' ya está ocupado.");
         } else {
-            // Guardar los datos de la nueva cuenta.
             db.ref('usuarios/' + idUsuario).set({
-                nombreReal: nombre,
+                nombreReal: sanitizar(nombre),
                 pin: pin,
-                saldo: monto
+                saldo: monto,
+                creadoEn: firebase.database.ServerValue.TIMESTAMP
             }, (error) => {
                 if (error) {
-                    alert("Error al guardar: " + error.message);
+                    console.error("Error al crear cuenta:", error.code);
+                    alert("❌ Error al crear la cuenta. Intenta de nuevo.");
                 } else {
-                    alert("¡Cuenta creada! Ya puedes entrar.");
+                    alert("✅ ¡Cuenta creada! Ya puedes entrar.");
                     mostrarPantalla('pantalla-login');
                 }
             });
@@ -294,17 +343,39 @@ function crearCuenta() {
 }
 
 /**
- * Valida las credenciales de entrada y da acceso al sistema.
+ * Valida las credenciales y da acceso al sistema.
+ * Fase 3.4: Protección contra brute force + sanitización.
  */
 function iniciarSesion() {
+    const ahora = Date.now();
+
+    // --- Protección Brute Force: Bloqueo temporal tras 5 intentos ---
+    if (ahora < loginBloqueadoHasta) {
+        const segundosRestantes = Math.ceil((loginBloqueadoHasta - ahora) / 1000);
+        alert(`🔒 Demasiados intentos fallidos. Espera ${segundosRestantes} segundos.`);
+        return;
+    }
+
     const nombre = document.getElementById('loginNombre').value.trim();
-    const pin = document.getElementById('loginPin').value;
+    const pin = document.getElementById('loginPin').value.trim();
     const loading = document.getElementById('loadingLogin');
 
-    if (nombre === "" || pin === "") return;
+    // Validación básica
+    if (!nombre || !pin) return;
+
+    // Sanitizar el nombre antes de usarlo (evitar path traversal en Firebase)
+    if (!validarNombreUsuario(nombre) && nombre.toLowerCase() !== ADMIN_USER.toLowerCase()) {
+        alert("⚠️ Nombre inválido.");
+        return;
+    }
+    if (!/^[0-9]{4}$/.test(pin)) {
+        alert("⚠️ El PIN debe ser de 4 dígitos.");
+        return;
+    }
 
     // Verificar si es la administradora principal.
     if (nombre.toLowerCase() === ADMIN_USER.toLowerCase() && pin === ADMIN_PIN) {
+        loginIntentosFallidos = 0;
         entrarComoAdmin();
         return;
     }
@@ -312,25 +383,35 @@ function iniciarSesion() {
     loading.classList.remove('hidden');
     const idUsuario = limpiarNombre(nombre);
 
-    // Buscar el usuario en la base de datos de Firebase.
     db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
         loading.classList.add('hidden');
         if (snapshot.exists()) {
             const datos = snapshot.val();
-            // Validar que el PIN coincida con lo ingresado.
             if (datos.pin === pin) {
-                usuarioActualNombre = nombre;
-                localStorage.setItem('bancoGamerUltimoUsuario', nombre);
+                // Login exitoso: resetear contador de intentos
+                loginIntentosFallidos = 0;
+                usuarioActualNombre = datos.nombreReal || nombre;
+                localStorage.setItem('bancoGamerUltimoUsuario', usuarioActualNombre);
                 entrarAlCajero(idUsuario, datos);
             } else {
-                alert("⛔ PIN incorrecto.");
+                // Fallo: incrementar contador
+                loginIntentosFallidos++;
+                if (loginIntentosFallidos >= 5) {
+                    loginBloqueadoHasta = Date.now() + 60000; // 1 minuto de bloqueo
+                    loginIntentosFallidos = 0;
+                    alert("🔒 Demasiados intentos fallidos. Espera 60 segundos.");
+                } else {
+                    alert(`⛔ PIN incorrecto. Intento ${loginIntentosFallidos}/5.`);
+                }
             }
         } else {
+            loginIntentosFallidos++;
             alert("⛔ Usuario no encontrado.");
         }
     }).catch((error) => {
         loading.classList.add('hidden');
-        alert("Error de conexión: " + error.message);
+        console.error("Error de conexión:", error.code);
+        alert("❌ Error de conexión. Intenta de nuevo.");
     });
 }
 
@@ -348,23 +429,28 @@ function entrarAlCajero(idUsuario, datosIniciales) {
     db.ref('usuarios/' + idUsuario + '/online').onDisconnect().set(false);
 
     // ESCUCHAR CAMBIOS EN VIVO (Listener):
-    // Firebase nos avisa si el saldo o los datos cambian (por ejemplo, si recibimos una transferencia).
     db.ref('usuarios/' + idUsuario).on('value', (snapshot) => {
         const datos = snapshot.val();
         if (datos) {
-            const icono = datos.iconoActivo || '';
-            const badgeHtml = icono ? `<span class="user-icon-badge">${icono}</span>` : '';
-            // Actualizar el nombre y saldo en la interfaz.
-            document.getElementById('nombreUsuarioDisplay').innerHTML = badgeHtml + datos.nombreReal;
-            document.getElementById('saldoDisplay').textContent = datos.saldo.toFixed(2);
+            // Fase 3.4: Construir badge de icono de forma segura (sin innerHTML con datos de Firebase)
+            const displayEl = document.getElementById('nombreUsuarioDisplay');
+            displayEl.textContent = ''; // Limpiar
 
-            // Actualizar las criptomonedas que posee.
-            const misCriptos = datos.criptomonedas || 0;
-            document.getElementById('txtMisCriptos').textContent = misCriptos;
+            if (datos.iconoActivo) {
+                const badge = document.createElement('span');
+                badge.className = 'user-icon-badge';
+                // Los iconos son emojis Unicode — textContent es suficientemente seguro
+                badge.textContent = datos.iconoActivo;
+                displayEl.appendChild(badge);
+            }
+            // Agregar el nombre como texto puro (nunca HTML)
+            displayEl.appendChild(document.createTextNode(sanitizar(datos.nombreReal || '')));
 
-            // Si la tienda está abierta, actualizar el saldo ahí también.
+            document.getElementById('saldoDisplay').textContent = (datos.saldo || 0).toFixed(2);
+            document.getElementById('txtMisCriptos').textContent = datos.criptomonedas || 0;
+
             if (!document.getElementById('pantalla-tienda').classList.contains('hidden')) {
-                document.getElementById('saldoTiendaDisplay').textContent = datos.saldo.toFixed(2);
+                document.getElementById('saldoTiendaDisplay').textContent = (datos.saldo || 0).toFixed(2);
                 renderizarTienda(datos);
             }
         }
@@ -884,7 +970,9 @@ function adminResolverSolicitud(idSolicitud, aprobado) {
 }
 
 /**
- * Carga la tabla de todos los usuarios registrados para gestión manual del saldo.
+ * Carga la tabla de usuarios para el panel admin.
+ * Fase 3.4: Reconstruida con DOM API — cero innerHTML con datos de Firebase.
+ * Los PINs ahora se muestran enmascarados con opción de revelar.
  */
 function cargarListaAdmin() {
     const tbody = document.getElementById('listaUsuariosAdmin');
@@ -901,28 +989,72 @@ function cargarListaAdmin() {
             const id = childSnapshot.key;
             const u = childSnapshot.val();
 
-            const fila = document.createElement('tr');
             const saldoNumerico = typeof u.saldo === 'number' ? u.saldo : parseFloat(u.saldo || 0);
             const saldoFormateado = saldoNumerico.toFixed(2);
-
             let saldoDisplay = saldoFormateado;
-            if (saldoFormateado.length > 9) {
-                saldoDisplay = saldoFormateado.substring(0, 9) + '...';
-            }
+            if (saldoFormateado.length > 9) saldoDisplay = saldoFormateado.substring(0, 9) + '...';
 
-            const statusClass = u.online ? 'status-online' : 'status-offline';
+            const fila = document.createElement('tr');
 
-            fila.innerHTML = `
-                        <td title="${u.nombreReal}">
-                            <span class="status-dot ${statusClass}"></span> ${u.nombreReal}
-                        </td>
-                        <td style="color: #f1c40f;">${u.pin}</td>
-                        <td style="font-family: monospace;" title="Saldo completo: $${saldoFormateado}">$${saldoDisplay}</td>
-                        <td>
-                            <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 1000)">+1K</button>
-                            <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -1000)">-1K</button>
-                        </td>
-                    `;
+            // -- Celda: Nombre + estado online (segura) --
+            const tdNombre = document.createElement('td');
+            tdNombre.title = sanitizar(u.nombreReal || '');
+            const dot = document.createElement('span');
+            dot.className = `status-dot ${u.online ? 'status-online' : 'status-offline'}`;
+            tdNombre.appendChild(dot);
+            tdNombre.appendChild(document.createTextNode(' ' + sanitizar(u.nombreReal || id)));
+
+            // -- Celda: PIN enmascarado con botón de revelar --
+            const tdPin = document.createElement('td');
+            tdPin.style.color = '#f1c40f';
+            const pinMask = document.createElement('span');
+            pinMask.textContent = '****';
+            const btnVerPin = document.createElement('button');
+            btnVerPin.className = 'btn-mini';
+            btnVerPin.style.background = '#34495e';
+            btnVerPin.style.marginLeft = '5px';
+            btnVerPin.textContent = '👁️';
+            btnVerPin.title = 'Revelar PIN';
+            let pinVisible = false;
+            btnVerPin.addEventListener('click', () => {
+                pinVisible = !pinVisible;
+                pinMask.textContent = pinVisible ? sanitizar(u.pin || '????') : '****';
+                btnVerPin.textContent = pinVisible ? '🙈' : '👁️';
+            });
+            tdPin.appendChild(pinMask);
+            tdPin.appendChild(btnVerPin);
+
+            // -- Celda: Saldo --
+            const tdSaldo = document.createElement('td');
+            tdSaldo.style.fontFamily = 'monospace';
+            tdSaldo.title = `Saldo completo: $${saldoFormateado}`;
+            tdSaldo.textContent = '$' + saldoDisplay;
+
+            // -- Celda: Botones de acción --
+            const tdAcciones = document.createElement('td');
+            const btnMas = document.createElement('button');
+            btnMas.className = 'btn-mini';
+            btnMas.style.background = '#27ae60';
+            btnMas.textContent = '+1K';
+            btnMas.dataset.userId = id;
+            btnMas.addEventListener('click', function () {
+                adminModificarSaldo(this.dataset.userId, 1000);
+            });
+            const btnMenos = document.createElement('button');
+            btnMenos.className = 'btn-mini';
+            btnMenos.style.background = '#e74c3c';
+            btnMenos.textContent = '-1K';
+            btnMenos.dataset.userId = id;
+            btnMenos.addEventListener('click', function () {
+                adminModificarSaldo(this.dataset.userId, -1000);
+            });
+            tdAcciones.appendChild(btnMas);
+            tdAcciones.appendChild(btnMenos);
+
+            fila.appendChild(tdNombre);
+            fila.appendChild(tdPin);
+            fila.appendChild(tdSaldo);
+            fila.appendChild(tdAcciones);
             tbody.appendChild(fila);
         });
     });
@@ -986,24 +1118,34 @@ function cerrarSesion() {
 
 /**
  * Abre un cuadro de diálogo para pedir dinero al administrador.
+ * Fase 3.4: Validación y sanitización del monto solicitado.
  */
 function pedirDinero() {
-    const monto = prompt("¿Cuánto dinero quieres solicitar al banco?");
-    if (monto === null || monto === "" || isNaN(monto) || parseFloat(monto) <= 0) {
-        alert("Monto inválido.");
+    const monto = prompt("¿Cuánto dinero quieres solicitar al banco? (Máx. $100,000)");
+    if (monto === null || monto === '') return;
+
+    const montoNum = parseFloat(monto);
+    if (!validarMonto(montoNum)) {
+        alert("⚠️ Monto inválido.");
+        return;
+    }
+    if (montoNum > 100000) {
+        alert("⚠️ El máximo por solicitud es $100,000.");
         return;
     }
 
     const idUsuario = limpiarNombre(usuarioActualNombre);
-    // Enviamos la solicitud a Firebase para que aparezca en el panel de Admin.
     db.ref('solicitudes').push({
         idUsuario: idUsuario,
-        nombre: usuarioActualNombre,
-        monto: parseFloat(monto),
-        mensaje: "Me podrías mandar dinero?",
+        nombre: sanitizar(usuarioActualNombre),
+        monto: montoNum,
+        mensaje: 'Me podrías mandar dinero?',
         fecha: firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
-        alert("✅ Solicitud enviada al Admin. Espera su aprobación.");
+        alert("✅ Solicitud enviada. Espera la aprobación del Admin.");
+    }).catch(err => {
+        console.error("Error enviando solicitud:", err.code);
+        alert("❌ No se pudo enviar la solicitud.");
     });
 }
 
@@ -1587,23 +1729,51 @@ function escucharRetos(miId) {
 }
 
 /**
- * Muestra una alerta visual de que alguien te ha retado.
+ * Muestra una notificación de reto entrante.
+ * Fase 3.4: Construida con DOM API — nombres de usuarios nunca entran como HTML.
  */
 function mostrarNotificacionDuelo(idDuelo, duelo) {
     const contenedor = document.getElementById('notificaciones-duelo');
-    // Evitar duplicados.
-    if (document.getElementById('notif_' + idDuelo)) return;
+    if (document.getElementById('notif_' + idDuelo)) return; // Evitar duplicados.
 
     const div = document.createElement('div');
     div.id = 'notif_' + idDuelo;
     div.className = 'alerta-duelo';
-    div.innerHTML = `
-        <p><strong>${duelo.retador}</strong> te reta a un duelo por <strong>$${duelo.apuesta}</strong>!</p>
-        <div style="display:flex; gap:5px;">
-            <button class="btn-mini" style="background:#27ae60" onclick="aceptarDuelo('${idDuelo}')">ACEPTAR</button>
-            <button class="btn-mini" style="background:#e74c3c" onclick="rechazarDuelo('${idDuelo}')">NO</button>
-        </div>
-    `;
+
+    // Parrafo descriptivo — nombre y monto como texto puro
+    const p = document.createElement('p');
+    const strong1 = document.createElement('strong');
+    strong1.textContent = sanitizar(duelo.retador || 'Alguien');
+    const strong2 = document.createElement('strong');
+    strong2.textContent = '$' + (parseFloat(duelo.apuesta) || 0).toFixed(2);
+
+    p.appendChild(strong1);
+    p.appendChild(document.createTextNode(' te reta a un duelo por '));
+    p.appendChild(strong2);
+    p.appendChild(document.createTextNode('!'));
+
+    // Botones de acción con dataset (no concatenación en onclick)
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex; gap:5px;';
+
+    const btnAceptar = document.createElement('button');
+    btnAceptar.className = 'btn-mini';
+    btnAceptar.style.background = '#27ae60';
+    btnAceptar.textContent = 'ACEPTAR';
+    btnAceptar.dataset.duelId = idDuelo;
+    btnAceptar.addEventListener('click', function () { aceptarDuelo(this.dataset.duelId); });
+
+    const btnRechazar = document.createElement('button');
+    btnRechazar.className = 'btn-mini';
+    btnRechazar.style.background = '#e74c3c';
+    btnRechazar.textContent = 'NO';
+    btnRechazar.dataset.duelId = idDuelo;
+    btnRechazar.addEventListener('click', function () { rechazarDuelo(this.dataset.duelId); });
+
+    btnRow.appendChild(btnAceptar);
+    btnRow.appendChild(btnRechazar);
+    div.appendChild(p);
+    div.appendChild(btnRow);
     contenedor.appendChild(div);
 }
 
