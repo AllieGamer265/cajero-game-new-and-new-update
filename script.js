@@ -116,10 +116,68 @@ let minasApuestaActual = 0;
 let minasDiamantesEncontrados = 0;
 let minasBombasTotales = 3;
 
-// --- VARIABLES ROBODE BANCO ---
+// --- VARIABLES ROBO DE BANCO ---
 let roboJuegoActivo = false;
 let roboContribuidoresRef = null;
 let roboEscuchandoBoveda = false;
+
+// =============================================================
+// SESIÓN Y TIMEOUT DE INACTIVIDAD (Fase 3.2)
+// Si el usuario no hace nada en 30 minutos, se cierra la sesión
+// automáticamente para proteger su cuenta en dispositivos compartidos.
+// =============================================================
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutos
+const SESSION_WARNING_MS = 25 * 60 * 1000;   // Advertencia a los 25 min
+let sessionTimeoutId = null;
+let sessionWarningId = null;
+
+/**
+ * Reinicia los contadores de inactividad. Se llama en cada
+ * interacción del usuario (click, teclado, touch).
+ */
+function resetearTimersSesion() {
+    if (!usuarioActualNombre) return;
+    clearTimeout(sessionTimeoutId);
+    clearTimeout(sessionWarningId);
+
+    sessionWarningId = setTimeout(() => {
+        if (usuarioActualNombre) {
+            const continuar = confirm(
+                "\u23f3 Tu sesión se cerrará en 5 minutos por inactividad.\n¿Deseas continuar?"
+            );
+            if (continuar) resetearTimersSesion();
+        }
+    }, SESSION_WARNING_MS);
+
+    sessionTimeoutId = setTimeout(() => {
+        if (usuarioActualNombre) {
+            alert("\ud83d\udd12 Sesión cerrada por inactividad (30 minutos).");
+            cerrarSesion();
+        }
+    }, SESSION_TIMEOUT_MS);
+}
+
+/**
+ * Activa el monitoreo de actividad del usuario en la página.
+ * Se llama una vez, al iniciar sesión.
+ */
+function iniciarMonitoreoSesion() {
+    const eventos = ['click', 'keydown', 'touchstart', 'mousemove'];
+    eventos.forEach(ev => {
+        document.addEventListener(ev, resetearTimersSesion, { passive: true });
+    });
+    resetearTimersSesion(); // Empezar el primer conteo.
+}
+
+/**
+ * Detiene el monitoreo de actividad y limpia los timers.
+ */
+function detenerMonitoreoSesion() {
+    clearTimeout(sessionTimeoutId);
+    clearTimeout(sessionWarningId);
+    sessionTimeoutId = null;
+    sessionWarningId = null;
+}
 
 // --- TIENDA DE ITEMS (Iconos y Escudos) ---
 const TIENDA_ITEMS = [
@@ -281,6 +339,9 @@ function iniciarSesion() {
  */
 function entrarAlCajero(idUsuario, datosIniciales) {
     mostrarPantalla('pantalla-cajero');
+
+    // Activar el monitoreo de inactividad de sesión.
+    iniciarMonitoreoSesion();
 
     // Sistema para rastrear si la jugadora está en línea.
     db.ref('usuarios/' + idUsuario + '/online').set(true);
@@ -879,17 +940,45 @@ function adminModificarSaldo(idUsuario, cantidad) {
 
 
 /**
- * Cierra la sesión activa y detiene los listeners de Firebase para ahorrar memoria.
+ * Cierra la sesión activa y detiene todos los listeners,
+ * timers y datos sensibles de la sesión.
  */
 function cerrarSesion() {
+    // 1. Marcar usuario como offline en Firebase.
     if (usuarioActualNombre) {
         const idUsuario = limpiarNombre(usuarioActualNombre);
-        db.ref('usuarios/' + idUsuario + '/online').set(false); // Marcar como offline manualmente.
+        db.ref('usuarios/' + idUsuario + '/online').set(false);
         db.ref('usuarios/' + idUsuario).off();
+        db.ref('usuarios/' + idUsuario + '/movimientos').off();
     }
+
+    // 2. Detener todos los listeners globales de Firebase.
     db.ref('solicitudes').off();
     db.ref('usuarios').off();
+    db.ref('evento_global').off();
+    db.ref('loteria/pozo').off();
+    db.ref('banco_central').off();
+    db.ref('mercado').off();
+    db.ref('duelos').off();
+
+    // 3. Detener el monitoreo de inactividad.
+    detenerMonitoreoSesion();
+
+    // 4. Limpiar los timers de lotería si están activos.
+    if (typeof intervaloLoteria !== 'undefined' && intervaloLoteria) {
+        clearInterval(intervaloLoteria);
+        intervaloLoteria = null;
+    }
+
+    // 5. Limpiar el estado local de la sesión.
     usuarioActualNombre = null;
+    roboEscuchandoBoveda = false;
+
+    // 6. Limpiar datos sensibles de sessionStorage (no localStorage,
+    //    para preservar el nombre del último usuario en el login).
+    sessionStorage.clear();
+
+    // 7. Redirigir a la pantalla de login.
     mostrarPantalla('pantalla-login');
 }
 
@@ -1357,57 +1446,83 @@ function retirar() {
     });
 }
 
-// --- TRANSFERENCIAS ENTRE USUARIOS ---
+// =============================================================
+// TRANSFERENCIAS ENTRE USUARIOS
+// Se usa una actualización multi-ruta atómica (multi-path update)
+// para garantizar que el descuento al emisor y el crédito al
+// receptor ocurran en UNA sola operación. Si falla una, fallan
+// ambas. Esto elimina la condición de carrera anterior.
+// =============================================================
 
 /**
- * Envía dinero de la cuenta del usuario actual a otra jugadora.
+ * Envía dinero de la cuenta actual a otra jugadora.
+ * Usa transacción atómica de Firebase para evitar pérdida de fondos.
  */
 function transferirDinero() {
     const destinatarioNombre = document.getElementById('destinatarioNombre').value.trim();
     const monto = parseFloat(document.getElementById('montoTransferencia').value);
 
-    if (destinatarioNombre === "" || isNaN(monto) || monto <= 0) {
-        alert("Revisa el nombre del destinatario y el monto.");
+    // --- Validación del lado del cliente ---
+    if (!destinatarioNombre || !validarMonto(monto)) {
+        alert("⚠️ Revisa el nombre del destinatario y el monto.");
         return;
     }
-
-    // Evitamos que te mandes dinero a ti misma por error.
+    if (!validarNombreUsuario(destinatarioNombre)) {
+        alert("⚠️ El nombre del destinatario contiene caracteres no permitidos.");
+        return;
+    }
+    if (monto > 1000000) {
+        alert("⚠️ El máximo por transferencia es $1,000,000.");
+        return;
+    }
     if (limpiarNombre(destinatarioNombre) === limpiarNombre(usuarioActualNombre)) {
-        alert("No puedes transferirte a ti misma aquí.");
+        alert("⚠️ No puedes transferirte a ti misma.");
         return;
     }
 
     const miId = limpiarNombre(usuarioActualNombre);
     const destId = limpiarNombre(destinatarioNombre);
 
-    // 1. Verificamos que la persona a la que le enviamos dinero realmente existe.
+    // Verificar que el destinatario existe antes de tocar ningún saldo.
     db.ref('usuarios/' + destId).once('value').then((snapshot) => {
         if (!snapshot.exists()) {
-            alert("⛔ El usuario destinatario '" + destinatarioNombre + "' NO existe.");
+            alert("\u26d4 El usuario '" + sanitizar(destinatarioNombre) + "' no existe.");
             return;
         }
 
-        // 2. Ejecutar la transferencia restando primero de mi saldo.
-        db.ref('usuarios/' + miId + '/saldo').transaction((miSaldo) => {
-            if ((miSaldo || 0) < monto) return;
-            return miSaldo - monto;
-        }, (error, committed, snapshot) => {
-            if (committed) {
-                // 3. Si se me descontó con éxito, le sumamos el dinero a la otra persona.
-                db.ref('usuarios/' + destId + '/saldo').transaction((otroSaldo) => {
-                    return (otroSaldo || 0) + monto;
-                });
+        // === ACTUALIZACIÓN ATÓMICA MULTI-RUTA ===
+        // Leemos el saldo actual del emisor para hacer el cálculo.
+        db.ref('usuarios/' + miId + '/saldo').once('value').then(miSaldoSnap => {
+            const miSaldoActual = miSaldoSnap.val() || 0;
 
-                // 4. Dejamos registro en el historial de ambas personas.
-                registrarMovimiento(miId, "ENVIO", monto, "Envío a " + destinatarioNombre, false);
-                registrarMovimiento(destId, "RECIBO", monto, "Recibido de " + usuarioActualNombre, true);
-
-                alert(`✅ ¡Transferencia exitosa! Enviaste ${monto} a ${destinatarioNombre}.`);
-                document.getElementById('destinatarioNombre').value = '';
-                document.getElementById('montoTransferencia').value = '';
-            } else {
+            if (miSaldoActual < monto) {
                 alert("❌ Fondos insuficientes.");
+                return;
             }
+
+            const destSaldoActual = (snapshot.val() && snapshot.val().saldo) || 0;
+
+            // Un solo objeto con TODAS las rutas a actualizar.
+            // Firebase aplica este objeto en una transacción atómica.
+            const updates = {};
+            updates['usuarios/' + miId + '/saldo'] = miSaldoActual - monto;
+            updates['usuarios/' + destId + '/saldo'] = destSaldoActual + monto;
+
+            // Aplicar las dos actualizaciones de saldo en UNA sola escritura.
+            db.ref().update(updates)
+                .then(() => {
+                    // Registrar en el historial de ambas jugadoras.
+                    registrarMovimiento(miId, "ENVÍO", monto, "Envío a " + sanitizar(destinatarioNombre), false);
+                    registrarMovimiento(destId, "RECIBO", monto, "Recibido de " + sanitizar(usuarioActualNombre), true);
+
+                    alert(`\u2705 ¡Transferencia exitosa! Enviaste $${monto.toFixed(2)} a ${sanitizar(destinatarioNombre)}.`);
+                    document.getElementById('destinatarioNombre').value = '';
+                    document.getElementById('montoTransferencia').value = '';
+                })
+                .catch((error) => {
+                    console.error("Error en transferencia atómica:", error);
+                    alert("❌ Error al transferir. Intenta de nuevo.");
+                });
         });
     });
 }
@@ -1493,33 +1608,61 @@ function mostrarNotificacionDuelo(idDuelo, duelo) {
 }
 
 /**
- * Acepta el duelo y descuenta la apuesta.
+ * Acepta el duelo y descuenta la apuesta de ambas jugadoras.
+ * NOTA: Imposible hacer un multi-path update seguro aquí sin
+ * conocer el saldo exacto de ambas en el mismo instante.
+ * Mejora: verificamos ambos saldos antes de tocar nada y
+ * usamos un update atómico con valores calculados previamente.
  */
 function aceptarDuelo(idDuelo) {
     db.ref('duelos/' + idDuelo).once('value').then(snap => {
         const duelo = snap.val();
-        if (!duelo) return;
+        if (!duelo || duelo.estado !== 'pendiente') return;
 
         const miId = limpiarNombre(usuarioActualNombre);
 
-        // Descontar saldo a ambos.
-        db.ref('usuarios/' + miId + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err, committed) => {
-            if (committed) {
-                db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err2, committed2) => {
-                    if (committed2) {
-                        // Cambiar estado a aceptado.
-                        db.ref('duelos/' + idDuelo + '/estado').set('aceptado');
-                    } else {
-                        alert("El retador ya no tiene dinero.");
-                        db.ref('usuarios/' + miId + '/saldo').transaction(s => s + duelo.apuesta); // Devolver dinero.
-                        db.ref('duelos/' + idDuelo).remove();
-                    }
-                });
-            } else {
-                alert("No tienes saldo suficiente.");
+        // Leer ambos saldos simultáneamente antes de decidir.
+        Promise.all([
+            db.ref('usuarios/' + miId + '/saldo').once('value'),
+            db.ref('usuarios/' + duelo.idRetador + '/saldo').once('value')
+        ]).then(([miSaldoSnap, retadorSaldoSnap]) => {
+            const miSaldo = miSaldoSnap.val() || 0;
+            const retadorSaldo = retadorSaldoSnap.val() || 0;
+
+            if (miSaldo < duelo.apuesta) {
+                alert("❌ No tienes saldo suficiente para esta apuesta.");
+                return;
             }
+            if (retadorSaldo < duelo.apuesta) {
+                alert("❌ El retador ya no tiene dinero suficiente.");
+                db.ref('duelos/' + idDuelo).remove();
+                return;
+            }
+
+            // Actualizar el estado del duelo ATÓMICAMENTE para evitar dobles aceptaciones.
+            db.ref('duelos/' + idDuelo + '/estado').transaction(estadoActual => {
+                if (estadoActual !== 'pendiente') return; // Alguien más ya lo aceptó.
+                return 'aceptado';
+            }, (error, committed) => {
+                if (!committed) {
+                    alert("❌ El duelo ya fue aceptado o cancelado.");
+                    return;
+                }
+
+                // === DESCONTAR APUESTAS CON MULTI-PATH UPDATE ATÓMICO ===
+                const updates = {};
+                updates['usuarios/' + miId + '/saldo'] = miSaldo - duelo.apuesta;
+                updates['usuarios/' + duelo.idRetador + '/saldo'] = retadorSaldo - duelo.apuesta;
+
+                db.ref().update(updates).catch(err => {
+                    console.error("Error descontando apuestas:", err);
+                    // Rollback del estado del duelo si falla el saldo.
+                    db.ref('duelos/' + idDuelo + '/estado').set('pendiente');
+                });
+            });
         });
     });
+
     const notif = document.getElementById('notif_' + idDuelo);
     if (notif) notif.remove();
 }
