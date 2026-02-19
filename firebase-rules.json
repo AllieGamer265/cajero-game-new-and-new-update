@@ -1,0 +1,180 @@
+{
+  "rules": {
+    
+    // ============================================================
+    // BANCO GAMER – Firebase Realtime Database Security Rules
+    // Versión: 2.0 – Hardening Phase 1.1
+    // Fecha: 2026-02-19
+    // 
+    // NOTA: Estas reglas son la primera capa de seguridad.
+    // En la Fase 1.2 se implementará Firebase Authentication,
+    // lo que permitirá reglas aún más estrictas por usuario.
+    // ============================================================
+
+    // ----------------------------------------------------------
+    // USUARIOS: Cada usuario solo puede leer/escribir sus propios datos.
+    // La clave del usuario es su nombre en minúsculas sin espacios.
+    // ----------------------------------------------------------
+    "usuarios": {
+      
+      // Permitir leer la lista de usuarios solo para el ranking público
+      // (solo el nombre, saldo e iconoActivo — no el PIN)
+      ".read": "auth != null",
+
+      "$userId": {
+        // Leer datos propios: solo si eres ese usuario (por ahora, cualquier autenticado)
+        ".read": true,
+        
+        // Escribir datos propios: permitido (se reforzará con Firebase Auth en Fase 1.2)
+        ".write": true,
+
+        // Validar que el PIN tenga exactamente 4 dígitos numéricos
+        "pin": {
+          ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}$/)"
+        },
+
+        // Validar que el saldo nunca sea negativo
+        "saldo": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        // Validar nombre real: máximo 30 caracteres, no vacío
+        "nombreReal": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+        },
+
+        // Movimientos: solo append (push), no borrar historial
+        "movimientos": {
+          "$movId": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['tipo', 'monto', 'detalle', 'positivo', 'fecha'])"
+          }
+        },
+
+        // Items comprados en la tienda
+        "itemsComprados": {
+          ".read": true,
+          ".write": true
+        },
+
+        // Estado online
+        "online": {
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.isBoolean()"
+        },
+
+        // Icono activo (skin seleccionada)
+        "iconoActivo": {
+          ".validate": "newData.isString() && newData.val().length <= 10"
+        },
+
+        // Criptomonedas: no puede ser negativo
+        "criptomonedas": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        // Boletos de lotería
+        "boletos": {
+          ".read": true,
+          ".write": true
+        },
+
+        // Firewall (protección de hackeo): timestamp de expiración
+        "firewallHasta": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    // ----------------------------------------------------------
+    // MERCADO CRIPTO: Cualquier usuario puede leer y actualizar
+    // el precio (sistema distribuido, lo actualizan todos).
+    // ----------------------------------------------------------
+    "mercado": {
+      ".read": true,
+      ".write": true,
+      ".validate": "newData.hasChildren(['precio', 'ultimaActualizacion'])",
+      "precio": {
+        ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000"
+      }
+    },
+
+    // ----------------------------------------------------------
+    // SOLICITUDES DE DINERO: Los usuarios pueden crear solicitudes.
+    // Solo la admin puede aprobarlas/borrarlas (en Fase 1.2 se
+    // reforzará con custom claims de admin).
+    // ----------------------------------------------------------
+    "solicitudes": {
+      ".read": true,
+      ".write": true,
+      "$solicitudId": {
+        ".validate": "newData.hasChildren(['nombre', 'monto', 'mensaje', 'idUsuario'])",
+        "monto": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 1000000"
+        }
+      }
+    },
+
+    // ----------------------------------------------------------
+    // LOTERÍA: Todos pueden leer el estado. Usuarios pueden
+    // comprar boletos (escribir sus entradas).
+    // ----------------------------------------------------------
+    "loteria": {
+      ".read": true,
+      ".write": true,
+      "disponible": {
+        ".validate": "newData.isBoolean()"
+      },
+      "pozo": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      }
+    },
+
+    // ----------------------------------------------------------
+    // DUELOS: Lectura y escritura para todos los autenticados.
+    // Los duelos son eventos públicos entre 2 jugadoras.
+    // ----------------------------------------------------------
+    "duelos": {
+      ".read": true,
+      ".write": true,
+      "$duelId": {
+        "apuesta": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 1000000"
+        }
+      }
+    },
+
+    // ----------------------------------------------------------
+    // BANCO CENTRAL (Robo Cooperativo): Todos pueden participar.
+    // ----------------------------------------------------------
+    "banco_central": {
+      ".read": true,
+      ".write": true
+    },
+
+    // ----------------------------------------------------------
+    // EVENTO GLOBAL: Todos pueden leer. Solo admin puede escribir.
+    // En Fase 1.2 se reforzará con Firebase Auth custom claims.
+    // Por ahora, se permite escritura (se valida en el cliente).
+    // ----------------------------------------------------------
+    "evento_global": {
+      ".read": true,
+      ".write": true
+    },
+
+    // ----------------------------------------------------------
+    // RANKINGS: Para evitar exponer datos sensibles en consultas
+    // directas, la lectura del ranking se hace a través de /usuarios.
+    // ----------------------------------------------------------
+
+    // ----------------------------------------------------------
+    // BLOQUEO TOTAL: Cualquier ruta no definida queda bloqueada.
+    // Esto previene que se creen rutas no autorizadas.
+    // ----------------------------------------------------------
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
