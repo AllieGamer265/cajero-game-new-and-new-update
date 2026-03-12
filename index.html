@@ -7,12 +7,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Content Security Policy: Reduce la superficie de ataque XSS -->
     <!-- Permite scripts solo de fuentes conocidas y de este mismo dominio -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
-                   script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com; 
-                   connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com; 
-                   style-src 'self' 'unsafe-inline'; 
-                   img-src 'self' data: https:; 
-                   font-src 'self' https:;">
     <title>Simulador de Banco Gamer</title>
 
     <!-- Importación de Firebase: Necesario para la persistencia de datos en la nube -->
@@ -48,7 +42,7 @@
 
         <!-- PANTALLA 1: REGISTRO - Permite a nuevos usuarios crear una cuenta -->
         <div class="pantalla hidden" id="pantalla-registro">
-            <h1>🏦 BANCO GAMER 🏦</h1>
+            <h1 id="titulo-secreto-reg" style="cursor: pointer;">🏦 BANCO GAMER 🏦</h1>
             <p>¡Bienvenida! Crea tu cuenta en la nube.</p>
             <input type="text" id="regNombre" placeholder="Tu Nombre de Jugadora">
             <input type="number" id="regPin" placeholder="Crea un PIN (4 dígitos)">
@@ -56,11 +50,13 @@
             <button onclick="crearCuenta()" style="margin-top: 10px; width: 100%;">CREAR CUENTA ►</button>
             <p style="font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;"
                 onclick="mostrarPantalla('pantalla-login')">¿Ya tienes cuenta? Inicia Sesión</p>
+            <p style="font-size: 0.8rem; margin-top: 5px; cursor: pointer; text-decoration: underline; color: #f1c40f;"
+                onclick="mostrarPantalla('pantalla-guia')">📖 MANUAL DEL JUGADOR</p>
         </div>
 
         <!-- PANTALLA 2: LOGIN - Acceso para usuarios registrados -->
         <div class="pantalla hidden" id="pantalla-login">
-            <h1>🔐 INICIAR SESIÓN</h1>
+            <h1 id="titulo-secreto-login" style="cursor: pointer;">🔐 INICIAR SESIÓN</h1>
             <p>Conéctate a tu cuenta.</p>
             <input type="text" id="loginNombre" placeholder="Tu Nombre">
             <input type="number" id="loginPin" placeholder="Tu PIN">
@@ -68,6 +64,8 @@
             <button onclick="iniciarSesion()" style="margin-top: 10px; width: 100%;">ENTRAR ►</button>
             <p style="font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;"
                 onclick="mostrarPantalla('pantalla-registro')">¿No tienes cuenta? Regístrate</p>
+            <p style="font-size: 0.8rem; margin-top: 5px; cursor: pointer; text-decoration: underline; color: #f1c40f;"
+                onclick="mostrarPantalla('pantalla-guia')">📖 MANUAL DEL JUGADOR</p>
         </div>
 
         <!-- PANTALLA 3: DASHBOARD CAJERO - Interfaz principal del usuario -->
@@ -136,9 +134,24 @@
                     style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #2c3e50, #000); color: #fff; border: 2px solid #f1c40f; font-size: 1rem; padding: 12px; font-weight: bold;">
                     💣 BUSCAMINAS GAMER
                 </button>
+                <button id="btnTorre" onclick="abrirTorre()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #f1c40f, #8e44ad); color: #fff; border: 2px solid #fff; font-size: 1rem; padding: 12px; font-weight: bold; text-shadow: 0 0 5px #000;">
+                    🏰 TORRE MILLONARIA
+                </button>
                 <button onclick="abrirRobo()"
                     style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #c0392b, #000); color: #fff; border: 2px solid #f1c40f; font-size: 1rem; padding: 12px; font-weight: bold;">
                     🚨 GRAN ROBO AL BANCO
+                </button>
+            </div>
+
+            <!-- AVISO DE TROLLEO EN DASHBOARD -->
+            <div id="avisoExtorsionDash" class="hidden blinking" style="background: #f1c40f; color: #000; padding: 12px; border-radius: 8px; margin-top: 15px; font-weight: bold; text-align: center; border: 2px solid #fff; box-shadow: 0 0 10px #f1c40f; font-family: monospace; font-size: 0.85rem;">
+                <div onclick="abrirAccesoMercado()" style="cursor: pointer;">
+                    👋 ¡HOLA AMIGO! TIENES UN MENSAJE.<br>
+                    Revisa el Mercado Negro pronto... ¡uy!
+                </div>
+                <button onclick="responderAmenazaMercado()" class="btn-responder-amenaza">
+                    [ RESPONDER AHORA ✉️ ]
                 </button>
             </div>
 
@@ -150,8 +163,19 @@
                 </ul>
             </div>
 
+            <!-- BOTÓN SECRETO MERCADO NEGRO (Solo aparece con invitación) -->
+            <div id="contenedorBotonMercado" class="hidden" style="margin-top: 20px; text-align: center;">
+                <p style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">ACCESO ESPECIAL DETECTADO</p>
+                <button onclick="abrirAccesoMercado()"
+                    style="width: 100%; background: #000; color: #0f0; border: 2px solid #0f0; font-family: monospace; font-size: 1.1rem; padding: 15px; box-shadow: 0 0 10px #0f0;">
+                    🕶️ ENTRAR AL MERCADO NEGRO
+                </button>
+            </div>
+
+            <button onclick="mostrarPantalla('pantalla-guia')"
+                style="margin-top: 10px; width: 100%; background-color: #34495e; color: #f1c40f; font-size: 0.8rem; border: 1px solid #f1c40f;">📖 LEER MANUAL</button>
             <button onclick="cerrarSesion()"
-                style="margin-top: 20px; width: 100%; background-color: #95a5a6; font-size: 0.9rem; padding: 10px;">CERRAR
+                style="margin-top: 10px; width: 100%; background-color: #95a5a6; font-size: 0.9rem; padding: 10px;">CERRAR
                 SESIÓN</button>
         </div>
 
@@ -324,6 +348,82 @@
             </button>
         </div>
 
+        <!-- PANTALLA: TORRE MILLONARIA (High Stakes) -->
+        <div class="pantalla hidden" id="pantalla-torre">
+            <h1 style="color: #f1c40f; text-shadow: 0 0 10px #f39c12;">🏰 TORRE MILLONARIA</h1>
+            <p>¡Sube niveles y gana millones!</p>
+
+            <div class="tower-container">
+                <!-- Info del premio -->
+                <div class="tower-info"
+                    style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid #f1c40f; margin-bottom: 20px;">
+                    <p style="margin: 0; font-size: 0.8rem;">PREMIO ACUMULADO:</p>
+                    <h2 id="txtTorrePremio" style="color: #2ecc71; font-size: 2rem; margin: 5px 0;">$0</h2>
+                    <p id="txtTorreNivel" style="font-weight: bold; color: #f1c40f; margin: 0;">NIVEL: 0 / 10</p>
+                </div>
+
+                <!-- Controles del juego -->
+                <div id="controlesTorre" style="margin-top: 20px;">
+                    <div id="vallaInicioTorre">
+                        <p style="font-size: 0.9rem; margin-bottom: 10px;">Costo de entrada: <strong>$5,000</strong></p>
+                        <button onclick="iniciarJuegoTorre()"
+                            style="width: 100%; background: linear-gradient(45deg, #f1c40f, #d35400); color: white; padding: 15px; font-weight: bold; font-size: 1.1rem; border: 2px solid #fff; border-radius: 10px; cursor: pointer;">
+                            ¡ENTRAR A LA TORRE! 🚀
+                        </button>
+                    </div>
+
+                    <div id="vallaJuegoTorre" style="display: none;">
+                        <p style="font-size: 0.8rem; margin-bottom: 15px; color: #3498db; font-weight: bold;">ELIGE UN
+                            CAMINO DE CRISTAL (50/50):</p>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button onclick="elegirCaminoTorre(0)" id="btnPath0"
+                                style="flex: 1; height: 100px; background: rgba(52, 152, 219, 0.2); border: 2px solid #3498db; font-size: 2.5rem; border-radius: 15px; transition: 0.3s;">💎</button>
+                            <button onclick="elegirCaminoTorre(1)" id="btnPath1"
+                                style="flex: 1; height: 100px; background: rgba(52, 152, 219, 0.2); border: 2px solid #3498db; font-size: 2.5rem; border-radius: 15px; transition: 0.3s;">💎</button>
+                        </div>
+                        <button onclick="cobrarTorre()" id="btnCobrarTorre"
+                            style="width: 100%; background: linear-gradient(to right, #27ae60, #2ecc71); border: none; padding: 15px; font-weight: bold; color: white; border-radius: 10px; cursor: pointer; border: 2px solid #fff;">
+                            RECOGER PREMIO 💰
+                        </button>
+                        <p style="font-size: 0.7rem; color: #e74c3c; margin-top: 5px;">* Si el cristal se rompe, pierdes
+                            TODO.</p>
+                    </div>
+                </div>
+
+                <div id="visualTorreUI"
+                    style="margin-top: 20px; display: flex; flex-direction: column-reverse; gap: 3px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px;">
+                    <!-- Se llenará con niveles visuales -->
+                </div>
+            </div>
+
+            <button onclick="mostrarPantalla('pantalla-cajero')" id="btnVolverTorre"
+                style="margin-top: 20px; width: 100%; background-color: #7f8c8d; border: none; color: white; padding: 10px; font-size: 0.8rem; cursor: pointer;">
+                Volver al Banco
+            </button>
+        </div>
+
+        <!-- PANTALLA: MANUAL / GUÍA -->
+        <div class="pantalla hidden" id="pantalla-guia" style="text-align: left; overflow-y: auto; max-height: 500px;">
+            <h1 style="font-size: 1.2rem; text-align: center;">📖 MANUAL DEL JUGADOR</h1>
+            <div style="font-size: 0.75rem; line-height: 1.4; color: #ecf0f1; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                <p><strong>🌟 1. INICIO:</strong> Empieza con <strong>$10,000</strong>. Usa un PIN de 4 dígitos fácil de recordar.</p>
+                <p><strong>💸 2. DINERO:</strong> Solicita dinero a la Admin o transfiere a amigos escribiendo su nombre exacto.</p>
+                <p><strong>📈 CRIPTOS:</strong> El precio cambia cada 10 seg. Compra barato (rojo), vende caro (verde).</p>
+                <p><strong>🎰 3. JUEGOS:</strong>
+                    <br>• Casino: x10 con Jackpot.
+                    <br>• Buscaminas: Evita bombas para multiplicar tu premio.
+                    <br>• Lotería: Compra boletos por $2,000 para el pozo acumulado.
+                </p>
+                <p><strong>💀 4. HACKING Y TROLLEO:</strong>
+                    <br>• Hackeo: Roba el 10% copiando el código en el Ranking.
+                    <br>• Trolleo: Envía bromas en el Mercado Negro (Deep Web). ¡Responde antes de 24h para no perder el 5%!
+                    <br>• Escudo: Cuesta $1,000 y te protege por 1 hora.
+                </p>
+                <p><strong>🏆 5. RANKING:</strong> Compite por ser la jugadora más rica del servidor.</p>
+            </div>
+            <button onclick="regresarDeGuia()" style="margin-top: 15px; width: 100%; background: #e67e22; padding: 10px; font-size: 1rem; border: 2px solid #fff;">ENTENDIDO ✅</button>
+        </div>
+
     </div>
 
     <!-- PANTALLA RANKING: Lista de usuarios con más dinero -->
@@ -371,8 +471,50 @@
             style="margin-top: 10px; width: 100%; background-color: #7f8c8d;">SALIR</button>
     </div>
 
-    <!-- CONTENEDOR DE NOTIFICACIONES (Retos entrantes) -->
-    <div id="notificaciones-duelo" style="position: fixed; top: 20px; right: 20px; z-index: 1000; width: 250px;"></div>
+    <!-- PANTALLA: MERCADO NEGRO (Deep Web) -->
+    <div class="pantalla hidden" id="pantalla-mercado">
+        <h1 style="color: #0f0; text-shadow: 0 0 10px #0f0; font-family: monospace;">🕵️‍♀️ MERCADO NEGRO 🕵️‍♀️</h1>
+        <p style="color: #0f0; font-family: monospace; font-size: 0.8rem;">BIENVENIDA AL INFRAMUNDO DIGITAL</p>
+
+        <div class="market-status"
+            style="border: 1px solid #0f0; padding: 10px; margin-bottom: 15px; background: rgba(0,255,0,0.05);">
+            <p style="margin: 0; font-size: 0.7rem; color: #0f0;">NIVEL DE ANONIMATO: <span
+                    style="color: #fff;">MÁXIMO</span></p>
+            <p style="margin: 5px 0 0 0; font-size: 0.7rem; color: #0f0;">SALDO LAVADO: <span id="saldoMercadoDisplay"
+                    style="color: #fff;">$0.00</span></p>
+        </div>
+
+        <div class="black-market-grid" id="listaItemsMercado">
+            <!-- Items raros se cargan aquí -->
+            <div style="color: #0f0; font-size: 0.8rem;">Cargando inventario prohibido...</div>
+        </div>
+
+        <!-- SERVICIOS DE TROLLEO (PARA MANDAR A OTROS) -->
+        <div style="border: 1px solid #0f0; padding: 10px; margin-top: 20px; background: rgba(0,255,0,0.02);">
+            <p style="color: #0f0; font-family: monospace; font-size: 0.8rem; margin: 0 0 10px 0;">💬 SERVICIOS DE
+                TROLLEO</p>
+            <input type="text" id="targetExtorsion" placeholder="Nombre del amigo"
+                style="background: #000; border: 1px solid #0f0; color: #0f0; font-family: monospace; width: 90%; margin-bottom: 5px;">
+            <p style="color: #0f0; font-size: 0.6rem; margin: 5px 0;">Costo: $50,000 (Envía amenaza de 24h)</p>
+            <button onclick="comprarExtorsionUsuario()"
+                style="width: 100%; background: #0f0; color: #000; font-family: monospace; font-weight: bold; border: none; padding: 10px; cursor: pointer;">
+                Enviar ataque DIGITAL
+            </button>
+        </div>
+
+        <!-- SECCIÓN DE BROMA (MENSAJE) -->
+        <div id="seccionAmenazaMercado" class="hidden" style="border: 2px solid #f1c40f; padding: 15px; margin: 15px 0; background: rgba(241, 196, 15, 0.1); text-align: center; box-shadow: 0 0 15px #f1c40f;">
+            <p style="color: #f1c40f; font-weight: bold; font-family: monospace; font-size: 0.9rem; margin: 0;">👋 ¡HOLA AMIGUITO! 👋</p>
+            <p id="txtAmenazaMercado" style="color: #fff; font-size: 0.75rem; margin: 10px 0;">"¿Cómo te va? Qué lindo saldo tienes... sería una pena que se perdiera el 5% si no me respondes en menos de 24 horitas... ¡uy! 🙊"</p>
+            <button onclick="responderAmenazaMercado()" style="background: #f1c40f; color: #000; border: none; padding: 10px 15px; font-family: monospace; font-weight: bold; cursor: pointer; border-radius: 3px;">[ SALUDAR DE VUELTA ]</button>
+            <p id="timerAmenaza" style="color: #fff; font-size: 0.7rem; margin-top: 5px;">Tiempo para el 'uy': --:--:--</p>
+        </div>
+
+        <button onclick="mostrarPantalla('pantalla-cajero')"
+            style="margin-top: 20px; width: 100%; background: #222; color: #0f0; border: 1px solid #0f0; font-size: 0.8rem;">
+            SALIR SIN DEJAR RASTRO
+        </button>
+    </div>
 
     <!-- PANTALLA: MINIJUEGO DE HACKEO -->
     <div class="pantalla hidden" id="pantalla-hackeo">
@@ -443,6 +585,23 @@
 
 
 
+            <!-- SECCIÓN: ACCESO DIRECTO A CUENTAS -->
+            <h1 style="margin: 20px 0 10px 0; font-size: 1.3rem;">🚀 ACCESO DIRECTO</h1>
+            <div
+                style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed rgba(255,255,255,0.3);">
+                <p style="margin: 0 0 10px 0; font-size: 0.85rem;">Escribe el nombre y entra sin PIN:</p>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="adminJumpNombre" placeholder="Nombre de la jugadora"
+                        style="margin: 0; flex: 2; height: 40px; font-size: 0.9rem;">
+                    <button onclick="adminEntrarPorNombre()" class="btn-mini"
+                        style="margin: 0; flex: 1; height: 40px; font-size: 0.8rem; background: #3498db;">ENTRAR YA
+                        ►</button>
+                </div>
+                <div id="admin-favs-container" style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                    <!-- Espacio para botones rápidos de favoritos -->
+                </div>
+            </div>
+
             <!-- PANEL DE EVENTOS GLOBALES -->
             <h1 style="margin: 20px 0 10px 0; font-size: 1.3rem;">📢 EVENTOS GLOBALES</h1>
             <div class="admin-events-grid">
@@ -457,16 +616,21 @@
                     PREMIO</button>
                 <button class="btn-event" style="background: #c0392b;" onclick="adminTerminarEvento()">🛑 PARAR
                     EVENTO</button>
+                <button class="btn-event" style="background: #f1c40f; color: #000;" onclick="adminLanzarEvento('minas')">💣
+                    GOLDEN
+                    MINES</button>
+                <button class="btn-event"
+                    style="background: linear-gradient(45deg, #000, #4b0082); border: 2px solid #8a2be2;"
+                    onclick="adminBotonSorpresa()">⚡ MODO DIOS (SORPRESA)</button>
             </div>
 
-            <button onclick="cerrarSesion()"
-                style="margin-top: 15px; width: 100%; background-color: #95a5a6; font-size: 0.85rem; padding: 10px;">SALIR
+            <button onclick="cerrarSesion()" class="btn-mini"
+                style="margin-top: 15px; width: 100%; font-size: 0.85rem; padding: 12px; background-color: #95a5a6;">SALIR
                 DEL MODO PRO</button>
         </div>
     </div>
 
     <div class="teclado"></div> <!-- Espacio para teclado virtual (si se implementa) -->
-    </div>
 
     <!-- Lógica de la aplicación (script.js usa firebaseConfig de config.js) -->
     <script src="script.js"></script>
