@@ -19,7 +19,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <!-- Configuración privada (Firebase config + credenciales admin) - ANTES de script.js -->
-    <script src="config.js"></script>
+    <script src="config.js?v=2.1"></script>
 
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="styles.css">
@@ -42,7 +42,7 @@
 
         <!-- PANTALLA 1: REGISTRO - Permite a nuevos usuarios crear una cuenta -->
         <div class="pantalla hidden" id="pantalla-registro">
-            <h1 id="titulo-secreto-reg" style="cursor: pointer;">🏦 BANCO GAMER 🏦</h1>
+            <h1 id="titulo-secreto-reg" style="cursor: pointer; user-select: none;">🏦 BANCO GAMER 🏦</h1>
             <p>¡Bienvenida! Crea tu cuenta en la nube.</p>
             <input type="text" id="regNombre" placeholder="Tu Nombre de Jugadora">
             <input type="number" id="regPin" placeholder="Crea un PIN (4 dígitos)">
@@ -56,7 +56,7 @@
 
         <!-- PANTALLA 2: LOGIN - Acceso para usuarios registrados -->
         <div class="pantalla hidden" id="pantalla-login">
-            <h1 id="titulo-secreto-login" style="cursor: pointer;">🔐 INICIAR SESIÓN</h1>
+            <h1 id="titulo-secreto-login" style="cursor: pointer; user-select: none;">🔐 INICIAR SESIÓN</h1>
             <p>Conéctate a tu cuenta.</p>
             <input type="text" id="loginNombre" placeholder="Tu Nombre">
             <input type="number" id="loginPin" placeholder="Tu PIN">
@@ -633,7 +633,7 @@
     <div class="teclado"></div> <!-- Espacio para teclado virtual (si se implementa) -->
 
     <!-- Lógica de la aplicación (script.js usa firebaseConfig de config.js) -->
-    <script src="script.js"></script>
+    <script src="script.js?v=2.1"></script>
 
 </body>
 
