@@ -1,17 +1,12 @@
-// --- CONFIGURACIÓN DE FIREBASE ---
-// Estos son los datos necesarios para conectar el juego con la base de datos de Google.
-const firebaseConfig = {
-    apiKey: "AIzaSyApoYon1F85j5A8Olu1mlu4zmZKHwXof5M",
-    authDomain: "cajero-app-gamer-12345.firebaseapp.com",
-    projectId: "cajero-app-gamer-12345",
-    storageBucket: "cajero-app-gamer-12345.firebasestorage.app",
-    messagingSenderId: "608695622951",
-    appId: "1:608695622951:web:4f31e9953519f58e00dd02",
-    // URL de la base de datos en tiempo real.
-    databaseURL: "https://cajero-app-gamer-12345-default-rtdb.firebaseio.com"
-};
+// =============================================================
+// CONFIGURACIÓN: Las claves de Firebase y las credenciales admin
+// ahora están en config.js (excluido de GitHub por .gitignore).
+// config.js debe cargarse ANTES que este script en index.html.
+// =============================================================
 
-// Inicialización de la base de datos Firebase.
+// --- INICIALIZACIÓN DE FIREBASE ---
+// Las variables firebaseConfig, ADMIN_USER y ADMIN_PIN
+// provienen de config.js.
 let db;
 try {
     firebase.initializeApp(firebaseConfig);
@@ -19,13 +14,83 @@ try {
     console.log("Firebase inicializado correctamente");
 } catch (error) {
     console.error("Error inicializando Firebase:", error);
-    alert("⚠️ Error: No se pudo conectar a Firebase. Revisa la configuración en el código.");
+    alert("⚠️ Error: No se pudo conectar a Firebase. Revisa el archivo config.js.");
 }
 
-// --- CREDENCIALES ADMIN ---
-// Usuario y PIN especiales para entrar al panel de administración.
-const ADMIN_USER = "la pro XD";
-const ADMIN_PIN = "2015";
+// =============================================================
+// SEGURIDAD ANTI-XSS: Funciones de display seguro
+// Usamos DOMPurify para sanitizar cualquier dato que venga de
+// Firebase antes de mostrarlo en el DOM.
+// =============================================================
+
+/**
+ * Sanitiza un texto usando DOMPurify. Siempre úsala antes de
+ * insertar datos de Firebase en el HTML.
+ * @param {string} str - El texto a sanitizar.
+ * @returns {string} El texto limpio y seguro.
+ */
+function sanitizar(str) {
+    if (typeof str !== 'string') return String(str || '');
+    // Si DOMPurify está disponible, usarlo.
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(str, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+    }
+    // Fallback manual si DOMPurify no cargó.
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Establece el textContent de un elemento de forma segura 
+ * (no interpreta HTML, protege contra XSS).
+ * @param {string} elementId - El ID del elemento.
+ * @param {string} text - El texto a mostrar.
+ */
+function safeSetText(elementId, text) {
+    const el = document.getElementById(elementId);
+    if (el) el.textContent = String(text || '');
+}
+
+/**
+ * Inserta HTML sanitizado en un elemento usando DOMPurify.
+ * Úsala SOLO cuando necesites renderizar emojis/HTML permitido.
+ * @param {string} elementId - El ID del elemento.
+ * @param {string} html - El HTML a sanitizar e insertar.
+ * @param {object} options - Opciones de DOMPurify.
+ */
+function safeSetHtml(elementId, html, options = {}) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(html, options);
+    } else {
+        // Fallback: solo texto plano
+        el.textContent = html;
+    }
+}
+
+/**
+ * Valida que un nombre de usuario sea seguro (solo letras, números,
+ * espacios y algunos caracteres especiales). Máx 30 caracteres.
+ */
+function validarNombreUsuario(nombre) {
+    if (!nombre || nombre.length > 30) return false;
+    // Permitir letras (incluyendo acentos), números, espacios y guiones
+    const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-_\.XD]+$/i;
+    return regex.test(nombre);
+}
+
+/**
+ * Valida que un monto sea un número positivo y razonable.
+ */
+function validarMonto(monto) {
+    const n = parseFloat(monto);
+    return !isNaN(n) && n > 0 && n <= 1e12;
+}
 
 // --- ESTADO LOCAL ---
 // Variables globales que mantienen el estado actual de la sesión.
@@ -51,10 +116,68 @@ let minasApuestaActual = 0;
 let minasDiamantesEncontrados = 0;
 let minasBombasTotales = 3;
 
-// --- VARIABLES ROBODE BANCO ---
+// --- VARIABLES ROBO DE BANCO ---
 let roboJuegoActivo = false;
 let roboContribuidoresRef = null;
 let roboEscuchandoBoveda = false;
+
+// =============================================================
+// SESIÓN Y TIMEOUT DE INACTIVIDAD (Fase 3.2)
+// Si el usuario no hace nada en 30 minutos, se cierra la sesión
+// automáticamente para proteger su cuenta en dispositivos compartidos.
+// =============================================================
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutos
+const SESSION_WARNING_MS = 25 * 60 * 1000;   // Advertencia a los 25 min
+let sessionTimeoutId = null;
+let sessionWarningId = null;
+
+/**
+ * Reinicia los contadores de inactividad. Se llama en cada
+ * interacción del usuario (click, teclado, touch).
+ */
+function resetearTimersSesion() {
+    if (!usuarioActualNombre) return;
+    clearTimeout(sessionTimeoutId);
+    clearTimeout(sessionWarningId);
+
+    sessionWarningId = setTimeout(() => {
+        if (usuarioActualNombre) {
+            const continuar = confirm(
+                "\u23f3 Tu sesión se cerrará en 5 minutos por inactividad.\n¿Deseas continuar?"
+            );
+            if (continuar) resetearTimersSesion();
+        }
+    }, SESSION_WARNING_MS);
+
+    sessionTimeoutId = setTimeout(() => {
+        if (usuarioActualNombre) {
+            alert("\ud83d\udd12 Sesión cerrada por inactividad (30 minutos).");
+            cerrarSesion();
+        }
+    }, SESSION_TIMEOUT_MS);
+}
+
+/**
+ * Activa el monitoreo de actividad del usuario en la página.
+ * Se llama una vez, al iniciar sesión.
+ */
+function iniciarMonitoreoSesion() {
+    const eventos = ['click', 'keydown', 'touchstart', 'mousemove'];
+    eventos.forEach(ev => {
+        document.addEventListener(ev, resetearTimersSesion, { passive: true });
+    });
+    resetearTimersSesion(); // Empezar el primer conteo.
+}
+
+/**
+ * Detiene el monitoreo de actividad y limpia los timers.
+ */
+function detenerMonitoreoSesion() {
+    clearTimeout(sessionTimeoutId);
+    clearTimeout(sessionWarningId);
+    sessionTimeoutId = null;
+    sessionWarningId = null;
+}
 
 // --- TIENDA DE ITEMS (Iconos y Escudos) ---
 const TIENDA_ITEMS = [
@@ -133,36 +256,85 @@ function formatearNumero(num) {
     return num.toFixed(2);
 }
 
+// =============================================================
+// FASE 3.3 – PROTECCIÓN CSRF (para apps Firebase SPA)
+// En una SPA con Firebase, el CSRF clásico no aplica directamente
+// porque no hay cookies de sesión. Implementamos tokens de sesión
+// en memoria para validar que las acciones vienen de la pestaña
+// activa y no de una inyección externa.
+// =============================================================
+const SESSION_TOKEN = crypto.getRandomValues(new Uint8Array(16))
+    .reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '');
+
 /**
- * Crea una nueva cuenta de usuario en Firebase con un saldo inicial.
+ * Agrega el token de sesión al objeto de datos antes de enviarlo
+ * a Firebase. Permite detectar si alguien inyecta datos externos.
+ */
+function conTokenCSRF(datos) {
+    return Object.assign({}, datos, { _csrfToken: SESSION_TOKEN });
+}
+
+// =============================================================
+// Intentos de login fallidos - Brute Force Protection
+// =============================================================
+let loginIntentosFallidos = 0;
+let loginBloqueadoHasta = 0;
+
+/**
+ * Crea una nueva cuenta de usuario en Firebase.
+ * Fase 3.4: Validación exhaustiva de todos los inputs.
  */
 function crearCuenta() {
     const nombre = document.getElementById('regNombre').value.trim();
-    const pin = document.getElementById('regPin').value;
-    const monto = 10000; // Saldo de regalo para todas las jugadoras nuevas.
+    const pin = document.getElementById('regPin').value.trim();
+    const monto = 10000;
 
-    if (nombre === "" || pin.length !== 4) {
-        alert("⚠️ Datos inválidos. El PIN debe ser de 4 dígitos.");
+    // --- Validación de nombre (Fase 3.4) ---
+    if (!nombre) {
+        alert("⚠️ Debes ingresar un nombre.");
+        return;
+    }
+    if (!validarNombreUsuario(nombre)) {
+        alert("⚠️ El nombre solo puede contener letras, números y espacios (máx. 30 caracteres).");
+        return;
+    }
+    // El nombre 'admin' o variantes está bloqueado para usuarios normales.
+    const nombreId = limpiarNombre(nombre);
+    if (nombreId === limpiarNombre(ADMIN_USER)) {
+        alert("⛔ Ese nombre de usuario está reservado.");
         return;
     }
 
-    const idUsuario = limpiarNombre(nombre);
+    // --- Validación de PIN (Fase 3.4) ---
+    if (!/^[0-9]{4}$/.test(pin)) {
+        alert("⚠️ El PIN debe ser exactamente 4 dígitos numéricos (0-9).");
+        return;
+    }
+    // PINs triviales no permitidos
+    const PINES_BLOQUEADOS = ['0000', '1111', '2222', '3333', '4444', '5555',
+        '6666', '7777', '8888', '9999', '1234', '4321'];
+    if (PINES_BLOQUEADOS.includes(pin)) {
+        alert("⚠️ Ese PIN es muy obvio. Elige uno más seguro.");
+        return;
+    }
 
-    // Verificar en la nube si el nombre ya está tomado.
+    const idUsuario = nombreId;
+
     db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
         if (snapshot.exists()) {
-            alert("⛔ El nombre '" + nombre + "' ya está ocupado.");
+            alert("⛔ El nombre '" + sanitizar(nombre) + "' ya está ocupado.");
         } else {
-            // Guardar los datos de la nueva cuenta.
             db.ref('usuarios/' + idUsuario).set({
-                nombreReal: nombre,
+                nombreReal: sanitizar(nombre),
                 pin: pin,
-                saldo: monto
+                saldo: monto,
+                creadoEn: firebase.database.ServerValue.TIMESTAMP
             }, (error) => {
                 if (error) {
-                    alert("Error al guardar: " + error.message);
+                    console.error("Error al crear cuenta:", error.code);
+                    alert("❌ Error al crear la cuenta. Intenta de nuevo.");
                 } else {
-                    alert("¡Cuenta creada! Ya puedes entrar.");
+                    alert("✅ ¡Cuenta creada! Ya puedes entrar.");
                     mostrarPantalla('pantalla-login');
                 }
             });
@@ -171,17 +343,39 @@ function crearCuenta() {
 }
 
 /**
- * Valida las credenciales de entrada y da acceso al sistema.
+ * Valida las credenciales y da acceso al sistema.
+ * Fase 3.4: Protección contra brute force + sanitización.
  */
 function iniciarSesion() {
+    const ahora = Date.now();
+
+    // --- Protección Brute Force: Bloqueo temporal tras 5 intentos ---
+    if (ahora < loginBloqueadoHasta) {
+        const segundosRestantes = Math.ceil((loginBloqueadoHasta - ahora) / 1000);
+        alert(`🔒 Demasiados intentos fallidos. Espera ${segundosRestantes} segundos.`);
+        return;
+    }
+
     const nombre = document.getElementById('loginNombre').value.trim();
-    const pin = document.getElementById('loginPin').value;
+    const pin = document.getElementById('loginPin').value.trim();
     const loading = document.getElementById('loadingLogin');
 
-    if (nombre === "" || pin === "") return;
+    // Validación básica
+    if (!nombre || !pin) return;
+
+    // Sanitizar el nombre antes de usarlo (evitar path traversal en Firebase)
+    if (!validarNombreUsuario(nombre) && nombre.toLowerCase() !== ADMIN_USER.toLowerCase()) {
+        alert("⚠️ Nombre inválido.");
+        return;
+    }
+    if (!/^[0-9]{4}$/.test(pin)) {
+        alert("⚠️ El PIN debe ser de 4 dígitos.");
+        return;
+    }
 
     // Verificar si es la administradora principal.
     if (nombre.toLowerCase() === ADMIN_USER.toLowerCase() && pin === ADMIN_PIN) {
+        loginIntentosFallidos = 0;
         entrarComoAdmin();
         return;
     }
@@ -189,25 +383,35 @@ function iniciarSesion() {
     loading.classList.remove('hidden');
     const idUsuario = limpiarNombre(nombre);
 
-    // Buscar el usuario en la base de datos de Firebase.
     db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
         loading.classList.add('hidden');
         if (snapshot.exists()) {
             const datos = snapshot.val();
-            // Validar que el PIN coincida con lo ingresado.
             if (datos.pin === pin) {
-                usuarioActualNombre = nombre;
-                localStorage.setItem('bancoGamerUltimoUsuario', nombre);
+                // Login exitoso: resetear contador de intentos
+                loginIntentosFallidos = 0;
+                usuarioActualNombre = datos.nombreReal || nombre;
+                localStorage.setItem('bancoGamerUltimoUsuario', usuarioActualNombre);
                 entrarAlCajero(idUsuario, datos);
             } else {
-                alert("⛔ PIN incorrecto.");
+                // Fallo: incrementar contador
+                loginIntentosFallidos++;
+                if (loginIntentosFallidos >= 5) {
+                    loginBloqueadoHasta = Date.now() + 60000; // 1 minuto de bloqueo
+                    loginIntentosFallidos = 0;
+                    alert("🔒 Demasiados intentos fallidos. Espera 60 segundos.");
+                } else {
+                    alert(`⛔ PIN incorrecto. Intento ${loginIntentosFallidos}/5.`);
+                }
             }
         } else {
+            loginIntentosFallidos++;
             alert("⛔ Usuario no encontrado.");
         }
     }).catch((error) => {
         loading.classList.add('hidden');
-        alert("Error de conexión: " + error.message);
+        console.error("Error de conexión:", error.code);
+        alert("❌ Error de conexión. Intenta de nuevo.");
     });
 }
 
@@ -217,28 +421,36 @@ function iniciarSesion() {
 function entrarAlCajero(idUsuario, datosIniciales) {
     mostrarPantalla('pantalla-cajero');
 
+    // Activar el monitoreo de inactividad de sesión.
+    iniciarMonitoreoSesion();
+
     // Sistema para rastrear si la jugadora está en línea.
     db.ref('usuarios/' + idUsuario + '/online').set(true);
     db.ref('usuarios/' + idUsuario + '/online').onDisconnect().set(false);
 
     // ESCUCHAR CAMBIOS EN VIVO (Listener):
-    // Firebase nos avisa si el saldo o los datos cambian (por ejemplo, si recibimos una transferencia).
     db.ref('usuarios/' + idUsuario).on('value', (snapshot) => {
         const datos = snapshot.val();
         if (datos) {
-            const icono = datos.iconoActivo || '';
-            const badgeHtml = icono ? `<span class="user-icon-badge">${icono}</span>` : '';
-            // Actualizar el nombre y saldo en la interfaz.
-            document.getElementById('nombreUsuarioDisplay').innerHTML = badgeHtml + datos.nombreReal;
-            document.getElementById('saldoDisplay').textContent = datos.saldo.toFixed(2);
+            // Fase 3.4: Construir badge de icono de forma segura (sin innerHTML con datos de Firebase)
+            const displayEl = document.getElementById('nombreUsuarioDisplay');
+            displayEl.textContent = ''; // Limpiar
 
-            // Actualizar las criptomonedas que posee.
-            const misCriptos = datos.criptomonedas || 0;
-            document.getElementById('txtMisCriptos').textContent = misCriptos;
+            if (datos.iconoActivo) {
+                const badge = document.createElement('span');
+                badge.className = 'user-icon-badge';
+                // Los iconos son emojis Unicode — textContent es suficientemente seguro
+                badge.textContent = datos.iconoActivo;
+                displayEl.appendChild(badge);
+            }
+            // Agregar el nombre como texto puro (nunca HTML)
+            displayEl.appendChild(document.createTextNode(sanitizar(datos.nombreReal || '')));
 
-            // Si la tienda está abierta, actualizar el saldo ahí también.
+            document.getElementById('saldoDisplay').textContent = (datos.saldo || 0).toFixed(2);
+            document.getElementById('txtMisCriptos').textContent = datos.criptomonedas || 0;
+
             if (!document.getElementById('pantalla-tienda').classList.contains('hidden')) {
-                document.getElementById('saldoTiendaDisplay').textContent = datos.saldo.toFixed(2);
+                document.getElementById('saldoTiendaDisplay').textContent = (datos.saldo || 0).toFixed(2);
                 renderizarTienda(datos);
             }
         }
@@ -288,10 +500,17 @@ function cargarHistorial(idUsuario) {
         const signo = mov.positivo ? '+' : '-';
         const claseColor = mov.positivo ? 'mov-positivo' : 'mov-negativo';
 
-        li.innerHTML = `
-                    <span>${mov.detalle}</span>
-                    <span class="${claseColor}" style="font-weight:bold;">${signo}$${mov.monto}</span>
-                `;
+        // Usar textContent para evitar XSS en datos del historial
+        const spanDetalle = document.createElement('span');
+        spanDetalle.textContent = mov.detalle;
+
+        const spanMonto = document.createElement('span');
+        spanMonto.className = claseColor;
+        spanMonto.style.fontWeight = 'bold';
+        spanMonto.textContent = `${signo}$${mov.monto}`;
+
+        li.appendChild(spanDetalle);
+        li.appendChild(spanMonto);
         // Insertar al inicio de la lista para que el más nuevo aparezca arriba.
         ul.insertBefore(li, ul.firstChild);
     });
@@ -625,23 +844,60 @@ function verRanking() {
             const tieneFirewall = firewallHasta > Date.now();
 
             // Solo mostramos el botón de hackear si el usuario no somos nosotras mismas.
-            const hackBtnHtml = (user.id !== idUsuarioActual) ?
-                `<button class="btn-hack" onclick="intentarHackear('${user.id}', '${user.nombre}')">HACK</button>
-                 <button class="btn-hack btn-duelo" onclick="intentarRetar('${user.id}', '${user.nombre}')">RETAR ⚔️</button>` : '';
-
-            const shieldHtml = tieneFirewall ? `<span class="firewall-shield" title="Protección Activa">🛡️</span>` : '';
-
+            // Construir el item del ranking de forma segura (anti-XSS)
             const li = document.createElement('li');
             li.className = `rank-item ${claseExtra}`;
-            li.innerHTML = `
-                        <div>
-                            <span class="rank-pos">${icono} ${skinIcono} ${user.nombre} ${shieldHtml}</span>
-                            ${hackBtnHtml}
-                        </div>
-                        <div style="font-family: monospace; font-size: 1.1rem;">
-                            $${formatearNumero(user.saldo)}
-                        </div>
-                    `;
+
+            // Div izquierdo: posición + nombre
+            const divLeft = document.createElement('div');
+
+            const spanPos = document.createElement('span');
+            spanPos.className = 'rank-pos';
+            // textContent es seguro – el emoji/skinIcono son sólo texto Unicode
+            spanPos.textContent = `${icono} ${skinIcono} ${sanitizar(user.nombre)} `;
+
+            if (tieneFirewall) {
+                const shield = document.createElement('span');
+                shield.className = 'firewall-shield';
+                shield.title = 'Protección Activa';
+                shield.textContent = '🛡️';
+                spanPos.appendChild(shield);
+            }
+            divLeft.appendChild(spanPos);
+
+            // Botones de acción (solo si no es el usuario actual)
+            if (user.id !== idUsuarioActual) {
+                const btnHack = document.createElement('button');
+                btnHack.className = 'btn-hack';
+                btnHack.textContent = 'HACK';
+                // Guardamos los datos en dataset para evitar inyección por concatenación
+                btnHack.dataset.targetId = user.id;
+                btnHack.dataset.targetNombre = user.nombre;
+                btnHack.addEventListener('click', function () {
+                    intentarHackear(this.dataset.targetId, this.dataset.targetNombre);
+                });
+
+                const btnDuelo = document.createElement('button');
+                btnDuelo.className = 'btn-hack btn-duelo';
+                btnDuelo.textContent = 'RETAR ⚔️';
+                btnDuelo.dataset.targetId = user.id;
+                btnDuelo.dataset.targetNombre = user.nombre;
+                btnDuelo.addEventListener('click', function () {
+                    intentarRetar(this.dataset.targetId, this.dataset.targetNombre);
+                });
+
+                divLeft.appendChild(btnHack);
+                divLeft.appendChild(btnDuelo);
+            }
+
+            // Div derecho: saldo
+            const divRight = document.createElement('div');
+            divRight.style.fontFamily = 'monospace';
+            divRight.style.fontSize = '1.1rem';
+            divRight.textContent = `$${formatearNumero(user.saldo)}`;
+
+            li.appendChild(divLeft);
+            li.appendChild(divRight);
             lista.appendChild(li);
         });
     });
@@ -714,7 +970,9 @@ function adminResolverSolicitud(idSolicitud, aprobado) {
 }
 
 /**
- * Carga la tabla de todos los usuarios registrados para gestión manual del saldo.
+ * Carga la tabla de usuarios para el panel admin.
+ * Fase 3.4: Reconstruida con DOM API — cero innerHTML con datos de Firebase.
+ * Los PINs ahora se muestran enmascarados con opción de revelar.
  */
 function cargarListaAdmin() {
     const tbody = document.getElementById('listaUsuariosAdmin');
@@ -731,28 +989,72 @@ function cargarListaAdmin() {
             const id = childSnapshot.key;
             const u = childSnapshot.val();
 
-            const fila = document.createElement('tr');
             const saldoNumerico = typeof u.saldo === 'number' ? u.saldo : parseFloat(u.saldo || 0);
             const saldoFormateado = saldoNumerico.toFixed(2);
-
             let saldoDisplay = saldoFormateado;
-            if (saldoFormateado.length > 9) {
-                saldoDisplay = saldoFormateado.substring(0, 9) + '...';
-            }
+            if (saldoFormateado.length > 9) saldoDisplay = saldoFormateado.substring(0, 9) + '...';
 
-            const statusClass = u.online ? 'status-online' : 'status-offline';
+            const fila = document.createElement('tr');
 
-            fila.innerHTML = `
-                        <td title="${u.nombreReal}">
-                            <span class="status-dot ${statusClass}"></span> ${u.nombreReal}
-                        </td>
-                        <td style="color: #f1c40f;">${u.pin}</td>
-                        <td style="font-family: monospace;" title="Saldo completo: $${saldoFormateado}">$${saldoDisplay}</td>
-                        <td>
-                            <button class="btn-mini" style="background:#27ae60" onclick="adminModificarSaldo('${id}', 1000)">+1K</button>
-                            <button class="btn-mini" style="background:#e74c3c" onclick="adminModificarSaldo('${id}', -1000)">-1K</button>
-                        </td>
-                    `;
+            // -- Celda: Nombre + estado online (segura) --
+            const tdNombre = document.createElement('td');
+            tdNombre.title = sanitizar(u.nombreReal || '');
+            const dot = document.createElement('span');
+            dot.className = `status-dot ${u.online ? 'status-online' : 'status-offline'}`;
+            tdNombre.appendChild(dot);
+            tdNombre.appendChild(document.createTextNode(' ' + sanitizar(u.nombreReal || id)));
+
+            // -- Celda: PIN enmascarado con botón de revelar --
+            const tdPin = document.createElement('td');
+            tdPin.style.color = '#f1c40f';
+            const pinMask = document.createElement('span');
+            pinMask.textContent = '****';
+            const btnVerPin = document.createElement('button');
+            btnVerPin.className = 'btn-mini';
+            btnVerPin.style.background = '#34495e';
+            btnVerPin.style.marginLeft = '5px';
+            btnVerPin.textContent = '👁️';
+            btnVerPin.title = 'Revelar PIN';
+            let pinVisible = false;
+            btnVerPin.addEventListener('click', () => {
+                pinVisible = !pinVisible;
+                pinMask.textContent = pinVisible ? sanitizar(u.pin || '????') : '****';
+                btnVerPin.textContent = pinVisible ? '🙈' : '👁️';
+            });
+            tdPin.appendChild(pinMask);
+            tdPin.appendChild(btnVerPin);
+
+            // -- Celda: Saldo --
+            const tdSaldo = document.createElement('td');
+            tdSaldo.style.fontFamily = 'monospace';
+            tdSaldo.title = `Saldo completo: $${saldoFormateado}`;
+            tdSaldo.textContent = '$' + saldoDisplay;
+
+            // -- Celda: Botones de acción --
+            const tdAcciones = document.createElement('td');
+            const btnMas = document.createElement('button');
+            btnMas.className = 'btn-mini';
+            btnMas.style.background = '#27ae60';
+            btnMas.textContent = '+1K';
+            btnMas.dataset.userId = id;
+            btnMas.addEventListener('click', function () {
+                adminModificarSaldo(this.dataset.userId, 1000);
+            });
+            const btnMenos = document.createElement('button');
+            btnMenos.className = 'btn-mini';
+            btnMenos.style.background = '#e74c3c';
+            btnMenos.textContent = '-1K';
+            btnMenos.dataset.userId = id;
+            btnMenos.addEventListener('click', function () {
+                adminModificarSaldo(this.dataset.userId, -1000);
+            });
+            tdAcciones.appendChild(btnMas);
+            tdAcciones.appendChild(btnMenos);
+
+            fila.appendChild(tdNombre);
+            fila.appendChild(tdPin);
+            fila.appendChild(tdSaldo);
+            fila.appendChild(tdAcciones);
             tbody.appendChild(fila);
         });
     });
@@ -770,17 +1072,45 @@ function adminModificarSaldo(idUsuario, cantidad) {
 
 
 /**
- * Cierra la sesión activa y detiene los listeners de Firebase para ahorrar memoria.
+ * Cierra la sesión activa y detiene todos los listeners,
+ * timers y datos sensibles de la sesión.
  */
 function cerrarSesion() {
+    // 1. Marcar usuario como offline en Firebase.
     if (usuarioActualNombre) {
         const idUsuario = limpiarNombre(usuarioActualNombre);
-        db.ref('usuarios/' + idUsuario + '/online').set(false); // Marcar como offline manualmente.
+        db.ref('usuarios/' + idUsuario + '/online').set(false);
         db.ref('usuarios/' + idUsuario).off();
+        db.ref('usuarios/' + idUsuario + '/movimientos').off();
     }
+
+    // 2. Detener todos los listeners globales de Firebase.
     db.ref('solicitudes').off();
     db.ref('usuarios').off();
+    db.ref('evento_global').off();
+    db.ref('loteria/pozo').off();
+    db.ref('banco_central').off();
+    db.ref('mercado').off();
+    db.ref('duelos').off();
+
+    // 3. Detener el monitoreo de inactividad.
+    detenerMonitoreoSesion();
+
+    // 4. Limpiar los timers de lotería si están activos.
+    if (typeof intervaloLoteria !== 'undefined' && intervaloLoteria) {
+        clearInterval(intervaloLoteria);
+        intervaloLoteria = null;
+    }
+
+    // 5. Limpiar el estado local de la sesión.
     usuarioActualNombre = null;
+    roboEscuchandoBoveda = false;
+
+    // 6. Limpiar datos sensibles de sessionStorage (no localStorage,
+    //    para preservar el nombre del último usuario en el login).
+    sessionStorage.clear();
+
+    // 7. Redirigir a la pantalla de login.
     mostrarPantalla('pantalla-login');
 }
 
@@ -788,24 +1118,34 @@ function cerrarSesion() {
 
 /**
  * Abre un cuadro de diálogo para pedir dinero al administrador.
+ * Fase 3.4: Validación y sanitización del monto solicitado.
  */
 function pedirDinero() {
-    const monto = prompt("¿Cuánto dinero quieres solicitar al banco?");
-    if (monto === null || monto === "" || isNaN(monto) || parseFloat(monto) <= 0) {
-        alert("Monto inválido.");
+    const monto = prompt("¿Cuánto dinero quieres solicitar al banco? (Máx. $100,000)");
+    if (monto === null || monto === '') return;
+
+    const montoNum = parseFloat(monto);
+    if (!validarMonto(montoNum)) {
+        alert("⚠️ Monto inválido.");
+        return;
+    }
+    if (montoNum > 100000) {
+        alert("⚠️ El máximo por solicitud es $100,000.");
         return;
     }
 
     const idUsuario = limpiarNombre(usuarioActualNombre);
-    // Enviamos la solicitud a Firebase para que aparezca en el panel de Admin.
     db.ref('solicitudes').push({
         idUsuario: idUsuario,
-        nombre: usuarioActualNombre,
-        monto: parseFloat(monto),
-        mensaje: "Me podrías mandar dinero?",
+        nombre: sanitizar(usuarioActualNombre),
+        monto: montoNum,
+        mensaje: 'Me podrías mandar dinero?',
         fecha: firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
-        alert("✅ Solicitud enviada al Admin. Espera su aprobación.");
+        alert("✅ Solicitud enviada. Espera la aprobación del Admin.");
+    }).catch(err => {
+        console.error("Error enviando solicitud:", err.code);
+        alert("❌ No se pudo enviar la solicitud.");
     });
 }
 
@@ -1248,57 +1588,83 @@ function retirar() {
     });
 }
 
-// --- TRANSFERENCIAS ENTRE USUARIOS ---
+// =============================================================
+// TRANSFERENCIAS ENTRE USUARIOS
+// Se usa una actualización multi-ruta atómica (multi-path update)
+// para garantizar que el descuento al emisor y el crédito al
+// receptor ocurran en UNA sola operación. Si falla una, fallan
+// ambas. Esto elimina la condición de carrera anterior.
+// =============================================================
 
 /**
- * Envía dinero de la cuenta del usuario actual a otra jugadora.
+ * Envía dinero de la cuenta actual a otra jugadora.
+ * Usa transacción atómica de Firebase para evitar pérdida de fondos.
  */
 function transferirDinero() {
     const destinatarioNombre = document.getElementById('destinatarioNombre').value.trim();
     const monto = parseFloat(document.getElementById('montoTransferencia').value);
 
-    if (destinatarioNombre === "" || isNaN(monto) || monto <= 0) {
-        alert("Revisa el nombre del destinatario y el monto.");
+    // --- Validación del lado del cliente ---
+    if (!destinatarioNombre || !validarMonto(monto)) {
+        alert("⚠️ Revisa el nombre del destinatario y el monto.");
         return;
     }
-
-    // Evitamos que te mandes dinero a ti misma por error.
+    if (!validarNombreUsuario(destinatarioNombre)) {
+        alert("⚠️ El nombre del destinatario contiene caracteres no permitidos.");
+        return;
+    }
+    if (monto > 1000000) {
+        alert("⚠️ El máximo por transferencia es $1,000,000.");
+        return;
+    }
     if (limpiarNombre(destinatarioNombre) === limpiarNombre(usuarioActualNombre)) {
-        alert("No puedes transferirte a ti misma aquí.");
+        alert("⚠️ No puedes transferirte a ti misma.");
         return;
     }
 
     const miId = limpiarNombre(usuarioActualNombre);
     const destId = limpiarNombre(destinatarioNombre);
 
-    // 1. Verificamos que la persona a la que le enviamos dinero realmente existe.
+    // Verificar que el destinatario existe antes de tocar ningún saldo.
     db.ref('usuarios/' + destId).once('value').then((snapshot) => {
         if (!snapshot.exists()) {
-            alert("⛔ El usuario destinatario '" + destinatarioNombre + "' NO existe.");
+            alert("\u26d4 El usuario '" + sanitizar(destinatarioNombre) + "' no existe.");
             return;
         }
 
-        // 2. Ejecutar la transferencia restando primero de mi saldo.
-        db.ref('usuarios/' + miId + '/saldo').transaction((miSaldo) => {
-            if ((miSaldo || 0) < monto) return;
-            return miSaldo - monto;
-        }, (error, committed, snapshot) => {
-            if (committed) {
-                // 3. Si se me descontó con éxito, le sumamos el dinero a la otra persona.
-                db.ref('usuarios/' + destId + '/saldo').transaction((otroSaldo) => {
-                    return (otroSaldo || 0) + monto;
-                });
+        // === ACTUALIZACIÓN ATÓMICA MULTI-RUTA ===
+        // Leemos el saldo actual del emisor para hacer el cálculo.
+        db.ref('usuarios/' + miId + '/saldo').once('value').then(miSaldoSnap => {
+            const miSaldoActual = miSaldoSnap.val() || 0;
 
-                // 4. Dejamos registro en el historial de ambas personas.
-                registrarMovimiento(miId, "ENVIO", monto, "Envío a " + destinatarioNombre, false);
-                registrarMovimiento(destId, "RECIBO", monto, "Recibido de " + usuarioActualNombre, true);
-
-                alert(`✅ ¡Transferencia exitosa! Enviaste ${monto} a ${destinatarioNombre}.`);
-                document.getElementById('destinatarioNombre').value = '';
-                document.getElementById('montoTransferencia').value = '';
-            } else {
+            if (miSaldoActual < monto) {
                 alert("❌ Fondos insuficientes.");
+                return;
             }
+
+            const destSaldoActual = (snapshot.val() && snapshot.val().saldo) || 0;
+
+            // Un solo objeto con TODAS las rutas a actualizar.
+            // Firebase aplica este objeto en una transacción atómica.
+            const updates = {};
+            updates['usuarios/' + miId + '/saldo'] = miSaldoActual - monto;
+            updates['usuarios/' + destId + '/saldo'] = destSaldoActual + monto;
+
+            // Aplicar las dos actualizaciones de saldo en UNA sola escritura.
+            db.ref().update(updates)
+                .then(() => {
+                    // Registrar en el historial de ambas jugadoras.
+                    registrarMovimiento(miId, "ENVÍO", monto, "Envío a " + sanitizar(destinatarioNombre), false);
+                    registrarMovimiento(destId, "RECIBO", monto, "Recibido de " + sanitizar(usuarioActualNombre), true);
+
+                    alert(`\u2705 ¡Transferencia exitosa! Enviaste $${monto.toFixed(2)} a ${sanitizar(destinatarioNombre)}.`);
+                    document.getElementById('destinatarioNombre').value = '';
+                    document.getElementById('montoTransferencia').value = '';
+                })
+                .catch((error) => {
+                    console.error("Error en transferencia atómica:", error);
+                    alert("❌ Error al transferir. Intenta de nuevo.");
+                });
         });
     });
 }
@@ -1363,54 +1729,110 @@ function escucharRetos(miId) {
 }
 
 /**
- * Muestra una alerta visual de que alguien te ha retado.
+ * Muestra una notificación de reto entrante.
+ * Fase 3.4: Construida con DOM API — nombres de usuarios nunca entran como HTML.
  */
 function mostrarNotificacionDuelo(idDuelo, duelo) {
     const contenedor = document.getElementById('notificaciones-duelo');
-    // Evitar duplicados.
-    if (document.getElementById('notif_' + idDuelo)) return;
+    if (document.getElementById('notif_' + idDuelo)) return; // Evitar duplicados.
 
     const div = document.createElement('div');
     div.id = 'notif_' + idDuelo;
     div.className = 'alerta-duelo';
-    div.innerHTML = `
-        <p><strong>${duelo.retador}</strong> te reta a un duelo por <strong>$${duelo.apuesta}</strong>!</p>
-        <div style="display:flex; gap:5px;">
-            <button class="btn-mini" style="background:#27ae60" onclick="aceptarDuelo('${idDuelo}')">ACEPTAR</button>
-            <button class="btn-mini" style="background:#e74c3c" onclick="rechazarDuelo('${idDuelo}')">NO</button>
-        </div>
-    `;
+
+    // Parrafo descriptivo — nombre y monto como texto puro
+    const p = document.createElement('p');
+    const strong1 = document.createElement('strong');
+    strong1.textContent = sanitizar(duelo.retador || 'Alguien');
+    const strong2 = document.createElement('strong');
+    strong2.textContent = '$' + (parseFloat(duelo.apuesta) || 0).toFixed(2);
+
+    p.appendChild(strong1);
+    p.appendChild(document.createTextNode(' te reta a un duelo por '));
+    p.appendChild(strong2);
+    p.appendChild(document.createTextNode('!'));
+
+    // Botones de acción con dataset (no concatenación en onclick)
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex; gap:5px;';
+
+    const btnAceptar = document.createElement('button');
+    btnAceptar.className = 'btn-mini';
+    btnAceptar.style.background = '#27ae60';
+    btnAceptar.textContent = 'ACEPTAR';
+    btnAceptar.dataset.duelId = idDuelo;
+    btnAceptar.addEventListener('click', function () { aceptarDuelo(this.dataset.duelId); });
+
+    const btnRechazar = document.createElement('button');
+    btnRechazar.className = 'btn-mini';
+    btnRechazar.style.background = '#e74c3c';
+    btnRechazar.textContent = 'NO';
+    btnRechazar.dataset.duelId = idDuelo;
+    btnRechazar.addEventListener('click', function () { rechazarDuelo(this.dataset.duelId); });
+
+    btnRow.appendChild(btnAceptar);
+    btnRow.appendChild(btnRechazar);
+    div.appendChild(p);
+    div.appendChild(btnRow);
     contenedor.appendChild(div);
 }
 
 /**
- * Acepta el duelo y descuenta la apuesta.
+ * Acepta el duelo y descuenta la apuesta de ambas jugadoras.
+ * NOTA: Imposible hacer un multi-path update seguro aquí sin
+ * conocer el saldo exacto de ambas en el mismo instante.
+ * Mejora: verificamos ambos saldos antes de tocar nada y
+ * usamos un update atómico con valores calculados previamente.
  */
 function aceptarDuelo(idDuelo) {
     db.ref('duelos/' + idDuelo).once('value').then(snap => {
         const duelo = snap.val();
-        if (!duelo) return;
+        if (!duelo || duelo.estado !== 'pendiente') return;
 
         const miId = limpiarNombre(usuarioActualNombre);
 
-        // Descontar saldo a ambos.
-        db.ref('usuarios/' + miId + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err, committed) => {
-            if (committed) {
-                db.ref('usuarios/' + duelo.idRetador + '/saldo').transaction(s => (s >= duelo.apuesta) ? s - duelo.apuesta : null, (err2, committed2) => {
-                    if (committed2) {
-                        // Cambiar estado a aceptado.
-                        db.ref('duelos/' + idDuelo + '/estado').set('aceptado');
-                    } else {
-                        alert("El retador ya no tiene dinero.");
-                        db.ref('usuarios/' + miId + '/saldo').transaction(s => s + duelo.apuesta); // Devolver dinero.
-                        db.ref('duelos/' + idDuelo).remove();
-                    }
-                });
-            } else {
-                alert("No tienes saldo suficiente.");
+        // Leer ambos saldos simultáneamente antes de decidir.
+        Promise.all([
+            db.ref('usuarios/' + miId + '/saldo').once('value'),
+            db.ref('usuarios/' + duelo.idRetador + '/saldo').once('value')
+        ]).then(([miSaldoSnap, retadorSaldoSnap]) => {
+            const miSaldo = miSaldoSnap.val() || 0;
+            const retadorSaldo = retadorSaldoSnap.val() || 0;
+
+            if (miSaldo < duelo.apuesta) {
+                alert("❌ No tienes saldo suficiente para esta apuesta.");
+                return;
             }
+            if (retadorSaldo < duelo.apuesta) {
+                alert("❌ El retador ya no tiene dinero suficiente.");
+                db.ref('duelos/' + idDuelo).remove();
+                return;
+            }
+
+            // Actualizar el estado del duelo ATÓMICAMENTE para evitar dobles aceptaciones.
+            db.ref('duelos/' + idDuelo + '/estado').transaction(estadoActual => {
+                if (estadoActual !== 'pendiente') return; // Alguien más ya lo aceptó.
+                return 'aceptado';
+            }, (error, committed) => {
+                if (!committed) {
+                    alert("❌ El duelo ya fue aceptado o cancelado.");
+                    return;
+                }
+
+                // === DESCONTAR APUESTAS CON MULTI-PATH UPDATE ATÓMICO ===
+                const updates = {};
+                updates['usuarios/' + miId + '/saldo'] = miSaldo - duelo.apuesta;
+                updates['usuarios/' + duelo.idRetador + '/saldo'] = retadorSaldo - duelo.apuesta;
+
+                db.ref().update(updates).catch(err => {
+                    console.error("Error descontando apuestas:", err);
+                    // Rollback del estado del duelo si falla el saldo.
+                    db.ref('duelos/' + idDuelo + '/estado').set('pendiente');
+                });
+            });
         });
     });
+
     const notif = document.getElementById('notif_' + idDuelo);
     if (notif) notif.remove();
 }

@@ -1,0 +1,89 @@
+{
+    "rules": {
+        "usuarios": {
+            ".read": true,
+            "$userId": {
+                ".read": true,
+                ".write": true,
+                "pin": {
+                    ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}$/)"
+                },
+                "saldo": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "nombreReal": {
+                    ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                },
+                "movimientos": {
+                    "$movId": {
+                        ".write": true,
+                        ".validate": "newData.hasChildren(['tipo', 'monto', 'detalle', 'positivo', 'fecha'])"
+                    }
+                },
+                "itemsComprados": {
+                    ".read": true,
+                    ".write": true
+                },
+                "online": {
+                    ".read": true,
+                    ".write": true,
+                    ".validate": "newData.isBoolean()"
+                },
+                "iconoActivo": {
+                    ".validate": "newData.isString() && newData.val().length <= 10"
+                },
+                "criptomonedas": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "boletos": {
+                    ".read": true,
+                    ".write": true
+                },
+                "firewallHasta": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                }
+            }
+        },
+        "mercado": {
+            ".read": true,
+            ".write": true,
+            "precio": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000"
+            }
+        },
+        "solicitudes": {
+            ".read": true,
+            ".write": true,
+            "$solicitudId": {
+                "monto": {
+                    ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 1000000"
+                }
+            }
+        },
+        "loteria": {
+            ".read": true,
+            ".write": true
+        },
+        "duelos": {
+            ".read": true,
+            ".write": true,
+            "$duelId": {
+                "apuesta": {
+                    ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 1000000"
+                }
+            }
+        },
+        "banco_central": {
+            ".read": true,
+            ".write": true
+        },
+        "evento_global": {
+            ".read": true,
+            ".write": true
+        },
+        "$other": {
+            ".read": false,
+            ".write": false
+        }
+    }
+}

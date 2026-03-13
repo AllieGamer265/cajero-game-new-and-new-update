@@ -20,7 +20,7 @@
 *   **Sorteo Diario (🎟️):** Pulsa en "Lotería" para comprar un boleto ($2,000). El sorteo es automático a las **2:00 PM**. El ganador se lleva todo el pozo acumulado por las ventas de boletos.
 
 ### 💀 4. MODO HACKER Y DUELOS
-*   **Hacking 1vs1:** Ve al Ranking y pulsa "HACK" en otro jugador. Si pasas el escaneo de seguridad, entrarás a la terminal. Debes copiar el código de 6 números antes de 8 segundos. ¡Si lo logras, le robarás el 10% de su dinero! 
+*   **Hacking 1vs1:** Ve al Ranking y pulsa "HACK" en otro jugador. Si pasas el escaneo de seguridad, entrarás a la terminal. Debes copiar el código de 6 números antes de 8 segundos. ¡Si lo logras, le robarás el 10% de su dinero!                 
     *   *Ojo:* ¡El teclado cambia de posición en cada intento para confundirte!
 *   **Duelos de Dados (⚔️):** Reta a alguien por una apuesta. Ambos lanzan un dado del 1 al 100. El número más alto gana el pozo total del duelo.
 *   **Gran Robo Cooperativo (🚨):** ¡Trabajo en equipo! Entra a la Bóveda y pulsa "HACK" junto a otras personas. Cuando el progreso llegue al 100%, el botín acumulado se reparte equitativamente entre todos los que estuvieron hackeando en ese momento.

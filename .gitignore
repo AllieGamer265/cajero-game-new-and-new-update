@@ -12,3 +12,12 @@ node_modules/
 
 # OS generated files
 Desktop.ini
+
+# ⚠️ SECURITY: Archivos de configuración privada - NUNCA subir a GitHub
+config.js
+.env
+.env.local
+.env.production
+*.key
+firebase-adminsdk-*.json
+service-account*.json
