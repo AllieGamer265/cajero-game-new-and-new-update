@@ -13,8 +13,8 @@ node_modules/
 # OS generated files
 Desktop.ini
 
-# ⚠️ SECURITY: Archivos de configuración privada - NUNCA subir a GitHub
-config.js
+# ⚠️ SECURITY: Archivos de configuración privada
+# NOTA: config.js se ha removido de ignore porque es necesario para GitHub Pages
 .env
 .env.local
 .env.production
