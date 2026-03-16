@@ -162,21 +162,11 @@ function resetearTimersSesion() {
  * Se llama una vez, al iniciar sesión.
  */
 function iniciarMonitoreoSesion() {
-    const eventos = ['click', 'keydown', 'touchstart', 'mousemove'];
-    eventos.forEach(ev => {
-        document.addEventListener(ev, resetearTimersSesion, { passive: true });
-    });
-    resetearTimersSesion(); // Empezar el primer conteo.
+    // Monitoreo desactivado por petición del usuario
 }
 
-/**
- * Detiene el monitoreo de actividad y limpia los timers.
- */
 function detenerMonitoreoSesion() {
-    clearTimeout(sessionTimeoutId);
-    clearTimeout(sessionWarningId);
-    sessionTimeoutId = null;
-    sessionWarningId = null;
+    // Detener desactivado
 }
 
 // --- TIENDA DE ITEMS (Iconos y Escudos) ---
@@ -202,6 +192,38 @@ window.onload = function () {
     } else {
         mostrarPantalla('pantalla-registro');
     }
+
+    // --- PUERTA INVISIBLE PARA LA PRO ---
+    let clicsAdmin = 0;
+    let timerAdmin = null;
+
+    const titulos = ['titulo-secreto-reg', 'titulo-secreto-login'];
+    titulos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', () => {
+                clicsAdmin++;
+                clearTimeout(timerAdmin);
+
+                // Si pasan 2 segundos sin clics, el contador se reinicia (para que sea "rápido")
+                timerAdmin = setTimeout(() => { clicsAdmin = 0; }, 2000);
+
+                if (clicsAdmin >= 5) {
+                    clicsAdmin = 0;
+                    const pass = prompt("🔑 Identidad Pro Detectada.\nIngresa la Palabra Secreta:");
+
+                    // La palabra secreta es el ADMIN_PIN por ahora, 
+                    // pero solo aparece si haces los 5 clics.
+                    if (pass === ADMIN_PIN) {
+                        alert("✅ Acceso Concedido, Jefa.");
+                        loginAdminAuto();
+                    } else if (pass !== null) {
+                        alert("⛔ Intento de hackeo detectado. Sistema bloqueado.");
+                    }
+                }
+            });
+        }
+    });
 };
 
 /**
@@ -211,25 +233,37 @@ window.onload = function () {
 function mostrarPantalla(idPantalla) {
     const cajero = document.getElementById('cajero');
     const contenedorAdmin = document.getElementById('contenedor-admin');
-    const ranking = document.getElementById('pantalla-ranking');
 
-    // Ocultar todas las secciones marcadas con la clase .pantalla.
+    // Ocultar primero TODAS las pantallas
     document.querySelectorAll('.pantalla').forEach(p => p.classList.add('hidden'));
 
-    // Lógica para decidir si mostrar el cajero normal, el panel de admin o el ranking.
+    // Lista de pantallas que viven FUERA del div gris del cajero
+    const pantallasExternas = ['pantalla-ranking', 'pantalla-duelo', 'pantalla-hackeo', 'pantalla-mercado'];
+
     if (idPantalla === 'pantalla-admin') {
         cajero.style.display = 'none';
         contenedorAdmin.classList.remove('hidden');
         document.getElementById('pantalla-admin').classList.remove('hidden');
-    } else if (idPantalla === 'pantalla-ranking' || idPantalla === 'pantalla-duelo' || idPantalla === 'pantalla-hackeo') {
+    } else if (pantallasExternas.includes(idPantalla)) {
         cajero.style.display = 'none';
         contenedorAdmin.classList.add('hidden');
         document.getElementById(idPantalla).classList.remove('hidden');
     } else {
-        // Pantallas normales dentro de la interfaz del cajero.
+        // Pantallas normales (Login, Registro, Dashboard, Torre, Casino, etc.)
         cajero.style.display = 'block';
         contenedorAdmin.classList.add('hidden');
         document.getElementById(idPantalla).classList.remove('hidden');
+    }
+}
+
+/**
+ * Función para regresar a la pantalla adecuada desde el manual.
+ */
+function regresarDeGuia() {
+    if (usuarioActualNombre) {
+        mostrarPantalla('pantalla-cajero');
+    } else {
+        mostrarPantalla('pantalla-login');
     }
 }
 
@@ -294,10 +328,7 @@ function crearCuenta() {
         alert("⚠️ Debes ingresar un nombre.");
         return;
     }
-    if (!validarNombreUsuario(nombre)) {
-        alert("⚠️ El nombre solo puede contener letras, números y espacios (máx. 30 caracteres).");
-        return;
-    }
+    // Registro sin restricciones de caracteres
     // El nombre 'admin' o variantes está bloqueado para usuarios normales.
     const nombreId = limpiarNombre(nombre);
     if (nombreId === limpiarNombre(ADMIN_USER)) {
@@ -310,15 +341,9 @@ function crearCuenta() {
         alert("⚠️ El PIN debe ser exactamente 4 dígitos numéricos (0-9).");
         return;
     }
-    // PINs triviales no permitidos
-    const PINES_BLOQUEADOS = ['0000', '1111', '2222', '3333', '4444', '5555',
-        '6666', '7777', '8888', '9999', '1234', '4321'];
-    if (PINES_BLOQUEADOS.includes(pin)) {
-        alert("⚠️ Ese PIN es muy obvio. Elige uno más seguro.");
-        return;
-    }
 
     const idUsuario = nombreId;
+
 
     db.ref('usuarios/' + idUsuario).once('value').then((snapshot) => {
         if (snapshot.exists()) {
@@ -343,18 +368,17 @@ function crearCuenta() {
 }
 
 /**
+ * Login automático para el dueño (La Pro)
+ */
+function loginAdminAuto() {
+    entrarComoAdmin();
+}
+
+/**
  * Valida las credenciales y da acceso al sistema.
  * Fase 3.4: Protección contra brute force + sanitización.
  */
 function iniciarSesion() {
-    const ahora = Date.now();
-
-    // --- Protección Brute Force: Bloqueo temporal tras 5 intentos ---
-    if (ahora < loginBloqueadoHasta) {
-        const segundosRestantes = Math.ceil((loginBloqueadoHasta - ahora) / 1000);
-        alert(`🔒 Demasiados intentos fallidos. Espera ${segundosRestantes} segundos.`);
-        return;
-    }
 
     const nombre = document.getElementById('loginNombre').value.trim();
     const pin = document.getElementById('loginPin').value.trim();
@@ -363,22 +387,9 @@ function iniciarSesion() {
     // Validación básica
     if (!nombre || !pin) return;
 
-    // Sanitizar el nombre antes de usarlo (evitar path traversal en Firebase)
-    if (!validarNombreUsuario(nombre) && nombre.toLowerCase() !== ADMIN_USER.toLowerCase()) {
-        alert("⚠️ Nombre inválido.");
-        return;
-    }
-    if (!/^[0-9]{4}$/.test(pin)) {
-        alert("⚠️ El PIN debe ser de 4 dígitos.");
-        return;
-    }
-
-    // Verificar si es la administradora principal.
-    if (nombre.toLowerCase() === ADMIN_USER.toLowerCase() && pin === ADMIN_PIN) {
-        loginIntentosFallidos = 0;
-        entrarComoAdmin();
-        return;
-    }
+    // Validación bypass por petición del usuario
+    // PIN validado sin restricciones de longitud
+    // Acceso admin por formulario normal DESACTIVADO por seguridad.
 
     loading.classList.remove('hidden');
     const idUsuario = limpiarNombre(nombre);
@@ -388,24 +399,13 @@ function iniciarSesion() {
         if (snapshot.exists()) {
             const datos = snapshot.val();
             if (datos.pin === pin) {
-                // Login exitoso: resetear contador de intentos
-                loginIntentosFallidos = 0;
                 usuarioActualNombre = datos.nombreReal || nombre;
                 localStorage.setItem('bancoGamerUltimoUsuario', usuarioActualNombre);
                 entrarAlCajero(idUsuario, datos);
             } else {
-                // Fallo: incrementar contador
-                loginIntentosFallidos++;
-                if (loginIntentosFallidos >= 5) {
-                    loginBloqueadoHasta = Date.now() + 60000; // 1 minuto de bloqueo
-                    loginIntentosFallidos = 0;
-                    alert("🔒 Demasiados intentos fallidos. Espera 60 segundos.");
-                } else {
-                    alert(`⛔ PIN incorrecto. Intento ${loginIntentosFallidos}/5.`);
-                }
+                alert(`⛔ PIN incorrecto.`);
             }
         } else {
-            loginIntentosFallidos++;
             alert("⛔ Usuario no encontrado.");
         }
     }).catch((error) => {
@@ -453,6 +453,22 @@ function entrarAlCajero(idUsuario, datosIniciales) {
                 document.getElementById('saldoTiendaDisplay').textContent = (datos.saldo || 0).toFixed(2);
                 renderizarTienda(datos);
             }
+
+            // Mostrar/Ocultar botón del Mercado Negro si tiene invitación
+            const btnMercado = document.getElementById('contenedorBotonMercado');
+            if (datos.tieneInvitacionMercado) {
+                btnMercado.classList.remove('hidden');
+            } else {
+                btnMercado.classList.add('hidden');
+            }
+
+            if (!document.getElementById('pantalla-mercado').classList.contains('hidden')) {
+                document.getElementById('saldoMercadoDisplay').textContent = (datos.saldo || 0).toFixed(2);
+                renderizarMercadoNegro(datos);
+            }
+
+            // VERIFICAR AMENAZAS DEL MERCADO NEGRO
+            verificarAmenazaMercado(idUsuario, datos);
         }
     });
 
@@ -818,7 +834,8 @@ function verRanking() {
                 nombre: u.nombreReal,
                 saldo: u.saldo || 0,
                 iconoActivo: u.iconoActivo || '',
-                firewallHasta: u.firewallHasta || 0
+                firewallHasta: u.firewallHasta || 0,
+                itemsMercado: u.itemsMercado || []
             });
         });
 
@@ -851,9 +868,13 @@ function verRanking() {
             // Div izquierdo: posición + nombre
             const divLeft = document.createElement('div');
 
+            const hasNeon = user.itemsMercado.includes('nombre_neon');
+            const hasInvisible = user.itemsMercado.includes('invisible');
+
             const spanPos = document.createElement('span');
             spanPos.className = 'rank-pos';
-            // textContent es seguro – el emoji/skinIcono son sólo texto Unicode
+            if (hasNeon) spanPos.classList.add('name-neon');
+            
             spanPos.textContent = `${icono} ${skinIcono} ${sanitizar(user.nombre)} `;
 
             if (tieneFirewall) {
@@ -894,6 +915,7 @@ function verRanking() {
             const divRight = document.createElement('div');
             divRight.style.fontFamily = 'monospace';
             divRight.style.fontSize = '1.1rem';
+            if (hasInvisible) divRight.classList.add('balance-blurred');
             divRight.textContent = `$${formatearNumero(user.saldo)}`;
 
             li.appendChild(divLeft);
@@ -912,6 +934,7 @@ function entrarComoAdmin() {
     mostrarPantalla('pantalla-admin');
     cargarListaAdmin();
     cargarSolicitudesAdmin();
+    adminRenderizarFavoritos(); // Cargar botones rápidos
 }
 
 /**
@@ -1051,6 +1074,47 @@ function cargarListaAdmin() {
             tdAcciones.appendChild(btnMas);
             tdAcciones.appendChild(btnMenos);
 
+            // Botón para entrar a la cuenta (Admin Magic)
+            const btnEntrar = document.createElement('button');
+            btnEntrar.className = 'btn-mini';
+            btnEntrar.style.background = '#3498db';
+            btnEntrar.textContent = '🚀 Entrar';
+            btnEntrar.title = 'Entrar a esta cuenta sin PIN';
+            btnEntrar.addEventListener('click', () => {
+                if (confirm(`¿Quieres entrar a la cuenta de ${u.nombreReal}?`)) {
+                    adminEntrarACuenta(id, u);
+                }
+            });
+            tdAcciones.appendChild(btnEntrar);
+
+            // --- Botón: Invitar al Mercado Negro ---
+            const btnInvitacion = document.createElement('button');
+            btnInvitacion.className = 'btn-mini';
+            btnInvitacion.style.background = '#8e44ad';
+            btnInvitacion.textContent = '🕶️ Invitar';
+            btnInvitacion.title = 'Dar acceso al Mercado Negro y enviar llave';
+            btnInvitacion.addEventListener('click', () => {
+                if (confirm(`¿Dar acceso secreto a ${u.nombreReal}? Se le enviará su llave.`)) {
+                    adminInvitarMercado(id, u.nombreReal);
+                }
+            });
+            tdAcciones.appendChild(btnInvitacion);
+
+            // --- Botón: Amenaza de Extorsión ---
+            const btnAmenaza = document.createElement('button');
+            btnAmenaza.className = 'btn-mini';
+            btnAmenaza.style.background = '#000';
+            btnAmenaza.style.color = '#0f0';
+            btnAmenaza.style.border = '1px solid #0f0';
+            btnAmenaza.textContent = '💀';
+            btnAmenaza.title = 'Enviar Trolleo al Amigo (5% multa)';
+            btnAmenaza.addEventListener('click', () => {
+                if (confirm(`¿Enviar un trolleo a ${u.nombreReal}? Si no responde en 24h perderá el 5%.`)) {
+                    adminLanzarAmenaza(id);
+                }
+            });
+            tdAcciones.appendChild(btnAmenaza);
+
             fila.appendChild(tdNombre);
             fila.appendChild(tdPin);
             fila.appendChild(tdSaldo);
@@ -1067,6 +1131,91 @@ function adminModificarSaldo(idUsuario, cantidad) {
     db.ref('usuarios/' + idUsuario + '/saldo').transaction((saldoActual) => {
         return (saldoActual || 0) + cantidad;
     });
+}
+
+/**
+ * Permite a la Admin entrar a cualquier cuenta instantáneamente.
+ */
+function adminEntrarACuenta(idUsuario, datos) {
+    console.log("Admin entrando a cuenta:", idUsuario);
+    usuarioActualNombre = datos.nombreReal || idUsuario;
+    // No guardamos en localStorage para evitar que se quede pegado si refresca
+    entrarAlCajero(idUsuario, datos);
+}
+
+/**
+ * Busca a un usuario por nombre y entra a su cuenta directamente.
+ */
+function adminEntrarPorNombre() {
+    const input = document.getElementById('adminJumpNombre');
+    const nombre = input.value.trim();
+    if (!nombre) return;
+
+    const id = limpiarNombre(nombre);
+    db.ref('usuarios/' + id).once('value').then(snap => {
+        if (snap.exists()) {
+            const datos = snap.val();
+            // Guardar en favoritos locales (para la Admin) si no está
+            adminGuardarFavorito(nombre);
+            adminEntrarACuenta(id, datos);
+        } else {
+            alert("❌ No se encontró el usuario '" + nombre + "'");
+        }
+    });
+}
+
+/**
+ * Guarda un nombre en la lista de favoritos de la Admin (localStorage).
+ */
+function adminGuardarFavorito(nombre) {
+    let favs = JSON.parse(localStorage.getItem('adminFavAccounts') || "[]");
+    // Solo guardamos si no existe ya
+    if (!favs.includes(nombre)) {
+        favs.push(nombre);
+        // Limitamos a los últimos 5 para no saturar
+        if (favs.length > 5) favs.shift();
+        localStorage.setItem('adminFavAccounts', JSON.stringify(favs));
+        adminRenderizarFavoritos();
+    }
+}
+
+/**
+ * Muestra los botones de acceso rápido de los favoritos guardados.
+ */
+function adminRenderizarFavoritos() {
+    const container = document.getElementById('admin-favs-container');
+    if (!container) return;
+
+    const favs = JSON.parse(localStorage.getItem('adminFavAccounts') || "[]");
+    container.innerHTML = '';
+
+    favs.forEach(nombre => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-mini';
+        btn.style.background = '#2c3e50';
+        btn.style.border = '1px solid #3498db';
+        btn.style.padding = '5px 10px';
+        btn.textContent = '👤 ' + nombre;
+        btn.onclick = () => {
+            document.getElementById('adminJumpNombre').value = nombre;
+            adminEntrarPorNombre();
+        };
+        container.appendChild(btn);
+    });
+
+    if (favs.length > 0) {
+        const btnClear = document.createElement('button');
+        btnClear.className = 'btn-mini';
+        btnClear.style.background = '#c0392b';
+        btnClear.style.marginLeft = '10px';
+        btnClear.textContent = '🗑️';
+        btnClear.title = "Borrar favoritos";
+        btnClear.onclick = () => {
+            localStorage.removeItem('adminFavAccounts');
+            adminRenderizarFavoritos();
+        };
+        container.appendChild(btnClear);
+    }
 }
 
 
@@ -1403,32 +1552,46 @@ function intentarHackear(idDestinatario, nombreDestinatario) {
         hackerTargetNombre = nombreDestinatario;
         hackerSecuenciaActual = "";
 
-        // Generar secuencia de 6 números aleatorios
-        hackerSecuenciaTarget = "";
-        for (let i = 0; i < 6; i++) {
-            hackerSecuenciaTarget += Math.floor(Math.random() * 10).toString();
-        }
-
-        // Mostrar pantalla y configurar UI
-        mostrarPantalla('pantalla-hackeo');
-        mezclarTecladoHacker(); // Mezclar los botones antes de mostrar
-        document.getElementById('hackerTargetName').textContent = nombreDestinatario;
-        document.getElementById('hackerCodeInput').textContent = hackerSecuenciaTarget;
-        document.getElementById('hackerLogs').innerHTML = `> Initializing bypass...<br>> Target: ${nombreDestinatario}<br>> Sequence generated.`;
-
-        // Iniciar temporizador (8 segundos)
-        let tiempoRestante = 100;
-        const progress = document.getElementById('hackerProgress');
-        if (hackerTimerInterval) clearInterval(hackerTimerInterval);
-
-        hackerTimerInterval = setInterval(() => {
-            tiempoRestante -= 1.25; // 100 / (8s * 10 iteraciones por segundo)
-            progress.style.width = tiempoRestante + "%";
-
-            if (tiempoRestante <= 0) {
-                finalizarHackeo(false, "¡TIEMPO AGOTADO!");
+        // 1. Verificamos si el atacante tiene cargas del Software Autohack
+        db.ref('usuarios/' + idAtacante + '/autohackCargas').once('value').then(snapAtacante => {
+            const cargas = snapAtacante.val() || 0;
+            
+            if (cargas > 0) {
+                // Si tiene cargas, gastar una y evitar el minijuego
+                db.ref('usuarios/' + idAtacante + '/autohackCargas').transaction(c => (c || 0) - 1);
+                alert(`💾 SOFTWARE AUTOHACK DETECTADO.\nCargas restantes: ${cargas - 1}\n¡Bypass de seguridad exitoso automáticamente!`);
+                finalizarHackeo(true, "BYPASS AUTOMÁTICO");
+                return; // Cortar la ejecución para que no abra el teclado
             }
-        }, 100);
+
+            // 2. Si no tiene el software, jugar del modo tradicional manual
+            // Generar secuencia de 6 números aleatorios
+            hackerSecuenciaTarget = "";
+            for (let i = 0; i < 6; i++) {
+                hackerSecuenciaTarget += Math.floor(Math.random() * 10).toString();
+            }
+
+            // Mostrar pantalla y configurar UI
+            mostrarPantalla('pantalla-hackeo');
+            mezclarTecladoHacker(); // Mezclar los botones antes de mostrar
+            document.getElementById('hackerTargetName').textContent = nombreDestinatario;
+            document.getElementById('hackerCodeInput').textContent = hackerSecuenciaTarget;
+            document.getElementById('hackerLogs').innerHTML = `> Initializing bypass...<br>> Target: ${nombreDestinatario}<br>> Sequence generated.`;
+
+            // Iniciar temporizador (15 segundos - Aumentado por petición)
+            let tiempoRestante = 100;
+            const progress = document.getElementById('hackerProgress');
+            if (hackerTimerInterval) clearInterval(hackerTimerInterval);
+
+            hackerTimerInterval = setInterval(() => {
+                tiempoRestante -= 0.67; // 100 / (15s * 10 iteraciones por segundo)
+                progress.style.width = tiempoRestante + "%";
+
+                if (tiempoRestante <= 0) {
+                    finalizarHackeo(false, "¡TIEMPO AGOTADO!");
+                }
+            }, 100);
+        });
     });
 }
 
@@ -1959,6 +2122,8 @@ function escucharEventosGlobales() {
                 txt.textContent = "📉 ¡CRIPTO CRASH! PRECIOS POR EL SUELO 📉";
             } else if (data.tipo === 'doble') {
                 txt.textContent = "🎰 ¡EVENTO: DOBLE PREMIO EN CASINO! 🎰";
+            } else if (data.tipo === 'minas') {
+                txt.textContent = "💎 ¡EVENTO: GOLDEN MINES ACTIVO! ¡X3 PREMIOS! 💎";
             }
         } else {
             eventoGlobalActivo = null;
@@ -2057,7 +2222,14 @@ function abrirMinas() {
 
 function iniciarJuegoMinas() {
     const apuesta = parseFloat(document.getElementById('betMinas').value);
-    const numBombas = parseInt(document.getElementById('numMinas').value);
+    let numBombas = parseInt(document.getElementById('numMinas').value);
+
+    // MODO GOLDEN MINES: Limitar bombas si el evento está activo para que sea más fácil
+    if (eventoGlobalActivo === 'minas' && numBombas > 3) {
+        numBombas = 3;
+        document.getElementById('numMinas').value = 3;
+    }
+
     const idUsuario = limpiarNombre(usuarioActualNombre);
 
     if (isNaN(apuesta) || apuesta < 10) return alert("La apuesta mínima es $10");
@@ -2168,7 +2340,14 @@ function calcularMultiplicadorMinas(gemas, bombas) {
     }
 
     const prob = combinations(25 - bombas, gemas) / combinations(25, gemas);
-    return (0.97 / prob); // 3% de ventaja para la casa
+    let multi = (0.97 / prob);
+    
+    // MODO GOLDEN MINES: ¡X3 Multiplicador!
+    if (eventoGlobalActivo === 'minas') {
+        multi = multi * 3;
+    }
+    
+    return multi;
 }
 
 function cobrarMinas() {
@@ -2377,3 +2556,552 @@ function reiniciarBoveda() {
 
 
 
+
+// --- LÓGICA DE LA TORRE MILLONARIA (HIGH STAKES) ---
+
+let towerNivelActual = 0;
+let towerPremioAcumulado = 0;
+let towerJuegoActivo = false;
+const TOWER_BET = 5000;
+
+// Lista de premios por nivel (Escala millonaria)
+const TOWER_PRIZES = [
+    0,          // Nivel 0 (Inicio)
+    10000,      // Nivel 1
+    25000,      // Nivel 2
+    50000,      // Nivel 3
+    100000,     // Nivel 4
+    250000,     // Nivel 5
+    500000,     // Nivel 6
+    1000000,    // Nivel 7 (EL MILLÓN!)
+    2500000,    // Nivel 8
+    5000000,    // Nivel 9
+    25000000    // Nivel 10 (EL REY)
+];
+
+function abrirTorre() {
+    towerJuegoActivo = false;
+    towerNivelActual = 0;
+    towerPremioAcumulado = 0;
+
+    document.getElementById('vallaInicioTorre').style.display = 'block';
+    document.getElementById('vallaJuegoTorre').style.display = 'none';
+    document.getElementById('txtTorrePremio').textContent = "$0.00";
+    document.getElementById('txtTorreNivel').textContent = "NIVEL: 0 / 10";
+
+    actualizarVisualTorre();
+    mostrarPantalla('pantalla-torre');
+}
+
+function actualizarVisualTorre() {
+    const container = document.getElementById('visualTorreUI');
+    container.innerHTML = '';
+
+    for (let i = 1; i <= 10; i++) {
+        const div = document.createElement('div');
+        div.className = 'tower-lvl-step';
+        div.style.padding = '5px';
+        div.style.textAlign = 'center';
+        div.style.fontSize = '0.7rem';
+        div.style.border = '1px solid rgba(255,255,255,0.1)';
+        div.style.borderRadius = '3px';
+        div.style.color = '#fff';
+
+        if (i <= towerNivelActual) {
+            div.style.background = 'linear-gradient(to right, #2ecc71, #27ae60)';
+            div.style.fontWeight = 'bold';
+            div.innerHTML = `Lvl ${i}: $${formatearNumero(TOWER_PRIZES[i])} ✅`;
+        } else {
+            div.style.background = 'rgba(255,255,255,0.05)';
+            div.innerHTML = `Lvl ${i}: $${formatearNumero(TOWER_PRIZES[i])}`;
+        }
+        container.appendChild(div);
+    }
+}
+
+function iniciarJuegoTorre() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    db.ref('usuarios/' + idUsuario).transaction(user => {
+        if (user && user.saldo >= TOWER_BET) {
+            user.saldo -= TOWER_BET;
+            return user;
+        }
+    }, (error, committed) => {
+        if (committed) {
+            towerJuegoActivo = true;
+            towerNivelActual = 0;
+            towerPremioAcumulado = 0;
+
+            document.getElementById('vallaInicioTorre').style.display = 'none';
+            document.getElementById('vallaJuegoTorre').style.display = 'block';
+            document.getElementById('btnCobrarTorre').disabled = true;
+            document.getElementById('btnCobrarTorre').style.opacity = '0.5';
+
+            registrarMovimiento(idUsuario, "TORRE APUESTA", TOWER_BET, "Entrada a la Torre Millonaria", false);
+            avanzarNivelTorre(); // Empezar en el nivel 1 automáticamente tras pagar
+        } else {
+            alert("Necesitas al menos $5,000 para entrar a la Torre.");
+        }
+    });
+}
+
+function avanzarNivelTorre() {
+    actualizarVisualTorre();
+
+    // LÓGICA DEL SOPLO DE LA TORRE (MERCADO NEGRO)
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/itemsMercado').once('value').then(snap => {
+        const items = snap.val() || [];
+        if (items.includes('soplo_torre')) {
+            // Decidir secretamente cuál es el camino correcto para mostrar pista
+            // Nota: El "suerte" en elegirCaminoTorre es aleatorio en el momento del click,
+            // así que para el "Soplo" vamos a predecir un lado que SERÍÁ correcto si hiciera click ahora.
+            // O mejor: Hacemos que si tiene el Soplo, SIEMPRE mostramos un botón dorado que ES el correcto.
+            
+            // Generamos la "verdad" de este nivel solo para el portador del soplo
+            const caminoCorrecto = Math.random() > 0.5 ? 1 : 0;
+            const btnPista = document.getElementById('btnPath' + caminoCorrecto);
+            btnPista.classList.add('correct-path');
+            
+            // Guardamos el camino correcto forzado para este nivel
+            towerProximoCaminoForzado = caminoCorrecto;
+        } else {
+            towerProximoCaminoForzado = null;
+        }
+    });
+}
+
+let towerProximoCaminoForzado = null;
+
+function elegirCaminoTorre(lado) {
+    if (!towerJuegoActivo) return;
+
+    // Quitar pistas visuales previas
+    document.getElementById('btnPath0').classList.remove('correct-path');
+    document.getElementById('btnPath1').classList.remove('correct-path');
+
+    // Sonido o efecto visual de click
+    const btn = document.getElementById('btnPath' + lado);
+    btn.style.transform = "scale(0.9)";
+    setTimeout(() => btn.style.transform = "scale(1)", 100);
+
+    // Probabilidad 50/50 o Camino Forzado por el Soplo
+    let suerte = false;
+    if (towerProximoCaminoForzado !== null) {
+        suerte = (lado === towerProximoCaminoForzado);
+    } else {
+        suerte = Math.random() > 0.5;
+    }
+
+    if (suerte) {
+        // SOBREVIVE Y AVANZA
+        towerNivelActual++;
+        towerPremioAcumulado = TOWER_PRIZES[towerNivelActual];
+
+        document.getElementById('txtTorrePremio').textContent = "$" + formatearNumero(towerPremioAcumulado);
+        document.getElementById('txtTorreNivel').textContent = `NIVEL: ${towerNivelActual} / 10`;
+        document.getElementById('btnCobrarTorre').disabled = false;
+        document.getElementById('btnCobrarTorre').style.opacity = '1';
+        document.getElementById('btnCobrarTorre').textContent = `RECOGER $${formatearNumero(towerPremioAcumulado)} 💰`;
+
+        actualizarVisualTorre();
+
+        if (towerNivelActual >= 10) {
+            alert("🎊 ¡HAS LLEGADO A LA CIMA! ¡ERES MULTIMILLONARIO! 🎊");
+            cobrarTorre();
+        }
+    } else {
+        // EL CRISTAL SE ROMPE
+        alert("💥 ¡EL CRISTAL SE ROMPIÓ! Caíste al vacío y perdiste todo.");
+        terminarTorre(false);
+    }
+}
+
+function cobrarTorre() {
+    if (!towerJuegoActivo || towerNivelActual === 0) return;
+
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    const premio = towerPremioAcumulado;
+
+    db.ref('usuarios/' + idUsuario + '/saldo').transaction(s => (s || 0) + premio);
+    registrarMovimiento(idUsuario, "TORRE PREMIO", premio, `Ganaste en la Torre (Lvl ${towerNivelActual})`, true);
+
+    alert(`💰 ¡Excelente! Has salido de la torre con $${formatearNumero(premio)}.`);
+    terminarTorre(true);
+}
+
+function terminarTorre(ganado) {
+    towerJuegoActivo = false;
+    document.getElementById('vallaInicioTorre').style.display = 'block';
+    document.getElementById('vallaJuegoTorre').style.display = 'none';
+
+    // Si perdió, registrar el movimiento de pérdida
+    if (!ganado) {
+        const idUsuario = limpiarNombre(usuarioActualNombre);
+        registrarMovimiento(idUsuario, "TORRE PERDIDA", 0, `Perdiste en la Torre (Lvl ${towerNivelActual})`, false);
+    }
+}
+
+/**
+ * FUNCIÓN SORPRESA: MODO DIOS (GOD MODE)
+ * Solo para la Admin Suprema. Activa efectos visuales y una lluvia masiva de dinero.
+ */
+function adminBotonSorpresa() {
+    // 1. Efecto visual de sacudida para todos (vía Firebase)
+    const idEvento = "god_" + Date.now();
+    
+    db.ref('evento_global').set({
+        activo: true,
+        tipo: 'god_mode',
+        id: idEvento,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    // 2. Notificación especial en la consola de JS (por si alguien está mirando)
+    console.log("%c⚠️ MODO DIOS ACTIVADO POR EL ADMIN ⚠️", "color: #f1c40f; font-size: 20px; font-weight: bold; background: #000; padding: 10px;");
+
+    alert("⚡ ¡MODO DIOS CARGANDO! Prepárate para el caos controlado...");
+
+    // 3. Regalo masivo a todos después de 3 segundos
+    setTimeout(() => {
+        db.ref('usuarios').once('value').then(snap => {
+            const usuarios = snap.val();
+            if (usuarios) {
+                Object.keys(usuarios).forEach(uid => {
+                    const montoRegalo = 15000; // ¡Quince mil de golpe!
+                    db.ref(`usuarios/${uid}/saldo`).transaction(s => (s || 0) + montoRegalo);
+                    registrarMovimiento(uid, "GOD GIFT", montoRegalo, "🎁 REGALO DIVINO DEL ADMIN", true);
+                });
+                alert("✨ ¡Has repartido $15,000 a todas las jugadoras del servidor!");
+            }
+        });
+    }, 3000);
+}
+
+// Necesitamos actualizar escucharEventosGlobales para manejar el nuevo tipo 'god_mode'
+// Pero para no sobreescribir funciones grandes, lo manejaremos con un listener extra.
+db.ref('evento_global').on('value', snap => {
+    const data = snap.val();
+    if (data && data.activo && data.tipo === 'god_mode') {
+        // Efecto "Matrix/Glitch" visual en la pantalla de todos
+        const body = document.body;
+        body.style.transition = "filter 0.1s";
+        let count = 0;
+        const glitchInterval = setInterval(() => {
+            body.style.filter = count % 2 === 0 ? "invert(1) hue-rotate(180deg)" : "none";
+            count++;
+            if (count > 10) {
+                clearInterval(glitchInterval);
+                body.style.filter = "none";
+                // Mostrar banner especial temporal
+                const banner = document.getElementById('bannerEvento');
+                const txt = document.getElementById('txtEvento');
+                banner.classList.add('active');
+                banner.style.background = "linear-gradient(90deg, #ffd700, #ff8c00, #ffd700)";
+                txt.textContent = "⚡ ¡BENDICIÓN DIVINA ACTIVA! +$15,000 ⚡";
+            }
+        }, 100);
+    }
+});
+
+/**
+ * (Solo Admin) otorga acceso al mercado negro y genera la llave numérica.
+ */
+function adminInvitarMercado(idUsuario, nombre) {
+    const llaveGenerada = Math.floor(Math.random() * 900000) + 100000; // Llave de 6 dígitos
+    db.ref('usuarios/' + idUsuario).update({
+        tieneInvitacionMercado: true,
+        llaveMercado: llaveGenerada
+    }).then(() => {
+        alert(`✅ Invitación enviada a ${nombre}.\nLa Llave Maestra es: ${llaveGenerada}`);
+        // Enviar notificación al usuario (simulado vía mensaje en el dash)
+        registrarMovimiento(idUsuario, "INVITACIÓN SECRETA", 0, `Has sido invitada al Inframundo. Tu llave es: ${llaveGenerada}`, true);
+    });
+}
+
+// --- LÓGICA DEL MERCADO NEGRO (USER SIDE) ---
+
+const MERCADO_NEGRO_ITEMS = [
+    { id: 'soplo_torre', icono: '👁️', nombre: 'Soplo de la Torre', precio: 50000, desc: 'Te garantiza un nivel seguro en la Torre.' },
+    { id: 'nombre_neon', icono: '🌈', nombre: 'Pintura Neón', precio: 100000, desc: 'Nombre brillante en el Ranking.' },
+    { id: 'software_autohack', icono: '💾', nombre: 'Autohack v2.0 (6 Usos)', precio: 150000, desc: 'Hackeo automático sin mini-juego. ¡Pura potencia!' },
+    { id: 'invisible', icono: '🌫️', nombre: 'Manto de Hacker', precio: 250000, desc: 'Nadie podrá ver tu saldo real.' },
+    { id: 'identidad_falsa', icono: '🆔', nombre: 'Identidad Falsa', precio: 500000, desc: 'Cambia tu nombre una vez.' }
+];
+
+function abrirAccesoMercado() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/llaveMercado').once('value').then(snap => {
+        const llaveReal = snap.val();
+        const inputUsuario = prompt("🕵️‍♀️ SEGURIDAD DEL INFRAMUNDO:\nIngresa tu Llave Maestra de 6 dígitos:");
+
+        if (inputUsuario === String(llaveReal)) {
+            alert("✅ ACCESO CONCEDIDO. Bienvenido al Mercado Negro.");
+            abrirMercadoNegro();
+        } else {
+            alert("⛔ LLAVE INCORRECTA. El sistema ha registrado este intento fallido.");
+        }
+    });
+}
+
+function abrirMercadoNegro() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario).once('value').then(snap => {
+        const datos = snap.val();
+        document.getElementById('saldoMercadoDisplay').textContent = (datos.saldo || 0).toFixed(2);
+        renderizarMercadoNegro(datos);
+        mostrarPantalla('pantalla-mercado');
+    });
+}
+
+function renderizarMercadoNegro(datosUsuario) {
+    const contenedor = document.getElementById('listaItemsMercado');
+    const itemsComprados = datosUsuario.itemsMercado || [];
+    
+    contenedor.innerHTML = '';
+    
+    // Estilos para el grid (si no están en CSS)
+    contenedor.style.display = 'grid';
+    contenedor.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    contenedor.style.gap = '10px';
+
+    MERCADO_NEGRO_ITEMS.forEach(item => {
+        let yaComprado = itemsComprados.includes(item.id);
+        
+        // El software de autohack se puede comprar varias veces (se recarga)
+        if (item.id === 'software_autohack') {
+            yaComprado = false; 
+        }
+        
+        const card = document.createElement('div');
+        card.style.background = 'rgba(0, 255, 0, 0.05)';
+        card.style.border = '1px solid #0f0';
+        card.style.padding = '10px';
+        card.style.borderRadius = '5px';
+        card.style.textAlign = 'center';
+        card.style.color = '#0f0';
+        card.style.fontFamily = 'monospace';
+
+        let btnText = yaComprado ? 'ADQUIRIDO' : `COMPRAR $${formatearNumero(item.precio)}`;
+        
+        if (item.id === 'software_autohack' && datosUsuario.autohackCargas > 0) {
+            btnText = `RECARGAR (Tienes ${datosUsuario.autohackCargas}) $${formatearNumero(item.precio)}`;
+        }
+        
+        const btnDisabled = yaComprado;
+
+        card.innerHTML = `
+            <span style="font-size: 2rem;">${item.icono}</span><br>
+            <strong style="font-size: 0.8rem;">${item.nombre}</strong><br>
+            <p style="font-size: 0.6rem; margin: 5px 0; color: #888;">${item.desc}</p>
+        `;
+        
+        const btn = document.createElement('button');
+        btn.textContent = btnText;
+        btn.disabled = btnDisabled;
+        btn.style.width = '100%';
+        btn.style.background = '#000';
+        btn.style.color = '#0f0';
+        btn.style.border = '1px solid #0f0';
+        btn.style.padding = '5px';
+        btn.style.cursor = yaComprado ? 'default' : 'pointer';
+        btn.style.fontSize = '0.7rem';
+        
+        if (!yaComprado) {
+            btn.onclick = () => comprarItemMercado(item.id, item.precio);
+        }
+
+        card.appendChild(btn);
+        contenedor.appendChild(card);
+    });
+}
+
+function comprarItemMercado(idItem, precio) {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    db.ref('usuarios/' + idUsuario).transaction(user => {
+        if (user && user.saldo >= precio) {
+            user.saldo -= precio;
+            if (!user.itemsMercado) user.itemsMercado = [];
+            user.itemsMercado.push(idItem);
+            return user;
+        }
+    }, (error, committed) => {
+        if (committed) {
+            alert("💀 Ítem prohibido adquirido con éxito.");
+            
+            // Lógica inmediata para algunos items
+            if (idItem === 'software_autohack') {
+                db.ref('usuarios/' + idUsuario + '/autohackCargas').transaction(c => (c || 0) + 6);
+                alert("💾 SOFTWARE INSTALADO: Tienes 6 cargas de hackeo automático.");
+            }
+
+            if (idItem === 'identidad_falsa') {
+                const nuevoNombre = prompt("Dinos tu nueva identidad secreta:");
+                if (nuevoNombre) {
+                    db.ref('usuarios/' + idUsuario).update({ nombreReal: nuevoNombre });
+                    alert("Identidad cambiada en la base de datos central.");
+                }
+            }
+        } else {
+            alert("No tienes suficiente dinero 'lavado'.");
+        }
+    });
+}
+
+// =============================================================
+// SISTEMA DE TROLLEO DEL MERCADO NEGRO
+// Implementado por petición: Si el usuario no responde en 24h, pierde 5%.
+// =============================================================
+
+let timerAmenazaInterval = null;
+
+/**
+ * Verifica si hay una amenaza activa y aplica la penalización si expiró.
+ */
+function verificarAmenazaMercado(idUsuario, datos) {
+    const seccion = document.getElementById('seccionAmenazaMercado');
+    const timerEl = document.getElementById('timerAmenaza');
+    const avisoDash = document.getElementById('avisoExtorsionDash');
+    
+    if (!datos.amenazaMercado) {
+        if (seccion) seccion.classList.add('hidden');
+        if (avisoDash) avisoDash.classList.add('hidden');
+        if (timerEl) clearInterval(timerAmenazaInterval);
+        return;
+    }
+
+    const ahora = Date.now();
+    const tiempoEnvio = datos.amenazaMercado.timestamp;
+    const tiempoLimite = tiempoEnvio + (24 * 60 * 60 * 1000); // 24 horas
+
+    if (ahora > tiempoLimite) {
+        // PERDIÓ EL TIEMPO: Aplicar multa del 5%
+        const montoActual = typeof datos.saldo === 'number' ? datos.saldo : parseFloat(datos.saldo || 0);
+        const multa = montoActual * 0.05;
+        
+        // Usar transacción para evitar errores de concurrencia
+        db.ref('usuarios/' + idUsuario).transaction(user => {
+            if (user && user.amenazaMercado) {
+                user.saldo = (user.saldo || 0) - multa;
+                delete user.amenazaMercado;
+                return user;
+            }
+        }, (error, committed) => {
+            if (committed) {
+                alert("💀 EL TIEMPO SE AGOTÓ.\nComo no respondiste al mensaje, el Mercado Negro ha tomado el 5% de tu saldo ($" + formatearNumero(multa) + ") como penalización.");
+                if (avisoDash) avisoDash.classList.add('hidden');
+            }
+        });
+    } else {
+        // MOSTRAR AMENAZA Y TIMER
+        if (seccion) seccion.classList.remove('hidden');
+        if (avisoDash) avisoDash.classList.remove('hidden');
+        actualizarTimerAmenaza(tiempoLimite);
+    }
+}
+
+/**
+ * Actualiza el reloj visual de la amenaza.
+ */
+function actualizarTimerAmenaza(limite) {
+    const timerEl = document.getElementById('timerAmenaza');
+    if (!timerEl) return;
+
+    clearInterval(timerAmenazaInterval);
+    timerAmenazaInterval = setInterval(() => {
+        const ahora = Date.now();
+        const dif = limite - ahora;
+        
+        if (dif <= 0) {
+            clearInterval(timerAmenazaInterval);
+            timerEl.textContent = "TIEMPO AGOTADO - PROCESANDO...";
+            return;
+        }
+        
+        const h = Math.floor(dif / (1000 * 60 * 60));
+        const m = Math.floor((dif % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((dif % (1000 * 60)) / 1000);
+        
+        timerEl.textContent = `TIEMPO RESTANTE: ${h}h ${m}m ${s}s`;
+    }, 1000);
+}
+
+/**
+ * El usuario responde a la amenaza para evitar la multa.
+ */
+function responderAmenazaMercado() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/amenazaMercado').remove().then(() => {
+        alert("👋 ¡Eso es! Qué amable. Me caes bien, amigo... por ahora. ¡Disfruta tu dinero!");
+    });
+}
+
+/**
+ * (Admin) Envía un trolleo a un usuario específico.
+ */
+function adminLanzarAmenaza(idUsuario) {
+    db.ref('usuarios/' + idUsuario + '/amenazaMercado').set({
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        mensaje: "Confirma tu presencia o pierde el 5%."
+    }).then(() => {
+        alert("💀 Amenaza enviada al usuario con éxito.");
+    });
+}
+
+/**
+ * Permite a un usuario del mercado negro enviar una amenaza a otro usuario pagando un precio.
+ */
+function comprarExtorsionUsuario() {
+    const victimName = document.getElementById('targetExtorsion').value.trim();
+    const idSender = limpiarNombre(usuarioActualNombre);
+    const cost = 50000;
+
+    if (!victimName) {
+        alert("Debes poner el nombre de tu amigo.");
+        return;
+    }
+    const idVictim = limpiarNombre(victimName);
+
+    if (idSender === idVictim) {
+        alert("No puedes trollearte a ti misma... eso sería raro.");
+        return;
+    }
+
+    // 1. Verificar que el usuario existe
+    db.ref('usuarios/' + idVictim).once('value').then(snap => {
+        if (!snap.exists()) {
+            alert("Ese usuario no existe en la base de datos.");
+            return;
+        }
+
+        const victimData = snap.val();
+        if (victimData.amenazaMercado) {
+            alert("Ese usuario ya tiene una amenaza activa. Espera a que expire.");
+            return;
+        }
+
+        // 2. Cobrar al emisor
+        db.ref('usuarios/' + idSender).transaction(sender => {
+            if (sender && sender.saldo >= cost) {
+                sender.saldo -= cost;
+                return sender;
+            }
+        }, (error, committed) => {
+            if (committed) {
+                // 3. Poner la amenaza a la víctima
+                db.ref('usuarios/' + idVictim + '/amenazaMercado').set({
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    mensaje: `¡Hola amigo! ¿Estás por ahí? Alguien te mandó un saludo especial... ¡uy!`
+                });
+
+                registrarMovimiento(idSender, "SERVICIO OSCURO", cost, `Saludo enviado a ${victimName}`, false);
+                alert(`💀 Saludo enviado. ${sanitizar(victimName)} tiene 24 horas para devolverte el saludo... o habrá un 'uy' de su parte.`);
+                document.getElementById('targetExtorsion').value = ''; // Limpiar input
+            } else {
+                alert("No tienes suficiente dinero ($50,000) para este saludo...");
+            }
+        });
+    });
+}
