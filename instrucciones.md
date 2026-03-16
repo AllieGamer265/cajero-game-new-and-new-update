@@ -39,5 +39,5 @@
     *   **Doble Premio:** ¡El casino paga el doble de lo normal!
 
 ---
-¡Mucha suerte y que crezca tu fortuna! 💰🚀
+¡Mucha suerte y que crezca tu fortuna! 💰🚀-
             
