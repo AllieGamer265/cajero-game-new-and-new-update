@@ -119,13 +119,17 @@ button:active {
 
 /* --- PANEL DE ADMINISTRADOR --- */
 #contenedor-admin {
-    background-color: #95a5a6;
+    background: rgba(149, 165, 166, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     padding: 30px;
-    border-radius: 15px;
-    border: 5px solid #7f8c8d;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+    border-radius: 25px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
     text-align: center;
-    width: 580px;
+    width: 950px;
+    max-width: 95vw;
+    margin: 20px auto;
 }
 
 #pantalla-admin {
@@ -154,7 +158,14 @@ td {
     white-space: nowrap;
 }
 
-/* Ajustes de columnas para admin */
+/* Permitir que la columna de acciones rompa el nowrap para ver todos los botones */
+td:last-child {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Ajustes de columnas para admin (Sumando 100%) */
 th:nth-child(1),
 td:nth-child(1) {
     width: 20%;
@@ -168,29 +179,51 @@ td:nth-child(2) {
 
 th:nth-child(3),
 td:nth-child(3) {
-    width: 38%;
+    width: 23%;
     text-align: right;
-    padding-right: 8px;
+    padding-right: 15px;
 }
 
 th:nth-child(4),
 td:nth-child(4) {
-    width: 30%;
-    text-align: center;
+    width: 45%; 
+    text-align: left;
+    padding: 8px;
 }
 
 th {
     font-weight: bold;
     background: rgba(0, 0, 0, 0.3);
     text-transform: uppercase;
-    font-size: 0.7rem;
-    padding: 8px 4px;
+    font-size: 0.75rem;
+    padding: 10px 5px;
 }
 
+/* Botones más refinados para la tabla admin */
 .btn-mini {
-    padding: 4px 7px;
-    font-size: 0.7rem;
-    margin: 1px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    margin: 2px;
+    min-width: 60px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.btn-mini:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-mini:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* --- HISTORIAL DE MOVIMIENTOS --- */
@@ -533,20 +566,41 @@ th {
 
 .admin-events-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
     margin-top: 20px;
-    padding: 15px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn-event {
-    font-size: 0.8rem;
-    padding: 10px;
-    border: 2px solid #fff;
+    font-size: 0.85rem;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
     text-transform: uppercase;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-event:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+    filter: brightness(1.1);
+    border-color: #fff;
+}
+
+.btn-event:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* --- PANTALLA DE HACKEO --- */
@@ -818,4 +872,149 @@ th {
         margin-top: 5px;
         display: block;
     }
+}
+
+/* --- ESTILOS DE LA TORRE MILLONARIA --- */
+#pantalla-torre {
+    background: linear-gradient(180deg, #2c3e50, #000);
+    border-color: #f1c40f;
+    min-height: 500px;
+}
+
+.tower-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.tower-lvl-step {
+    transition: all 0.5s ease;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* Efecto de parpadeo para el nivel actual */
+.tower-lvl-step.active {
+    animation: pulseGlow 1s infinite alternate;
+}
+
+@keyframes pulseGlow {
+    from {
+        box-shadow: 0 0 5px #2ecc71;
+        filter: brightness(1);
+    }
+    to {
+        box-shadow: 0 0 15px #2ecc71;
+        filter: brightness(1.3);
+    }
+}
+
+#btnPath0:hover, #btnPath1:hover {
+    background: rgba(52, 152, 219, 0.4);
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+#btnPath0:active, #btnPath1:active {
+    transform: scale(0.9);
+}
+
+/* Estilo para los botones cuando están deshabilitados */
+button:disabled {
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+/* --- ESTILOS ESPECÍFICOS DEL MERCADO NEGRO --- */
+#pantalla-mercado {
+    background: linear-gradient(135deg, #000, #0a0a0a);
+    border: 3px solid #0f0;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+    width: 600px; /* Ancho cómodo para el catálogo */
+    margin: 0 auto;
+}
+
+#pantalla-mercado h1 {
+    color: #0f0;
+    text-shadow: 0 0 10px #0f0;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.market-status {
+    border: 1px solid #0f0;
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.black-market-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-top: 10px;
+}
+
+/* --- EFECTOS DEL MERCADO NEGRO --- */
+.name-neon {
+    color: #fff;
+    text-shadow: 0 0 5px #fff, 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #0f0, 0 0 40px #0f0;
+    font-weight: bold;
+    animation: neonPulse 1.5s infinite alternate;
+}
+
+@keyframes neonPulse {
+    from { text-shadow: 0 0 5px #fff, 0 0 10px #0f0, 0 0 20px #0f0; }
+    to { text-shadow: 0 0 10px #fff, 0 0 20px #0f0, 0 0 40px #0f0; }
+}
+
+.balance-blurred {
+    filter: blur(5px);
+    user-select: none;
+    cursor: help;
+}
+
+.balance-blurred:hover::after {
+    content: " [OCULTO POR MANTO]";
+    font-size: 0.6rem;
+    color: #888;
+}
+
+/* Soplo de la Torre: Resaltar camino correcto */
+button.correct-path {
+    border: 3px solid #f1c40f !important;
+    box-shadow: 0 0 15px #f1c40f !important;
+    animation: correctHint 1s infinite alternate;
+}
+
+@keyframes correctHint {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+}
+
+@keyframes blinker {
+    50% { opacity: 0.3; }
+}
+
+.blinking {
+    animation: blinker 1s linear infinite;
+}
+
+/* --- BOTÓN DE RESPUESTA RÁPIDA A AMENAZAS --- */
+.btn-responder-amenaza {
+    background-color: #000 !important;
+    color: #f1c40f !important;
+    border: 2px solid #000 !important;
+    padding: 8px 15px !important;
+    font-size: 0.8rem !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    cursor: pointer !important;
+    border-radius: 5px !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-responder-amenaza:hover {
+    background-color: #333 !important;
+    transform: scale(1.02);
+}
+
+.btn-responder-amenaza:active {
+    transform: scale(0.98);
 }
