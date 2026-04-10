@@ -1270,16 +1270,12 @@ function cerrarSesion() {
  * Fase 3.4: Validación y sanitización del monto solicitado.
  */
 function pedirDinero() {
-    const monto = prompt("¿Cuánto dinero quieres solicitar al banco? (Máx. $100,000)");
+    const monto = prompt("¿Cuánto dinero quieres solicitar al banco?");
     if (monto === null || monto === '') return;
 
     const montoNum = parseFloat(monto);
     if (!validarMonto(montoNum)) {
         alert("⚠️ Monto inválido.");
-        return;
-    }
-    if (montoNum > 100000) {
-        alert("⚠️ El máximo por solicitud es $100,000.");
         return;
     }
 
