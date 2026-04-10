@@ -1536,55 +1536,56 @@ function intentarHackear(idDestinatario, nombreDestinatario) {
             return;
         }
 
-        // --- FASE 1: ESCANEO DE VULNERABILIDAD (Probabilidad) ---
-        const scanRoll = Math.random();
-        const probabilidadEscaneo = scanRoll < 0.40;
-
-        if (!probabilidadEscaneo) {
-            alert("HACKEO DENEGADO.");
-            ultimoHackAttempt = ahora;
-            return;
-        }
-
-        // --- FASE 2: INICIAR MINIJUEGO (Si el escaneo fue exitoso) ---
-        ultimoHackAttempt = ahora;
-        hackerTargetId = idDestinatario;
-        hackerTargetNombre = nombreDestinatario;
-        hackerSecuenciaActual = "";
-
-        // 1. Verificamos si el atacante tiene cargas del Software Autohack
+        // --- FASE 1: VERIFICAR OBJETO DE HACKEO (Garantiza éxito) ---
         db.ref('usuarios/' + idAtacante + '/autohackCargas').once('value').then(snapAtacante => {
             const cargas = snapAtacante.val() || 0;
-            
+
             if (cargas > 0) {
-                // Si tiene cargas, gastar una y evitar el minijuego
+                // --- ÉXITO GARANTIZADO: Bypass total del escaneo y mini-juego ---
+                ultimoHackAttempt = ahora;
+                hackerTargetId = idDestinatario;
+                hackerTargetNombre = nombreDestinatario;
+
                 db.ref('usuarios/' + idAtacante + '/autohackCargas').transaction(c => (c || 0) - 1);
-                alert(`💾 SOFTWARE AUTOHACK DETECTADO.\nCargas restantes: ${cargas - 1}\n¡Bypass de seguridad exitoso automáticamente!`);
+                alert(`💾 SOFTWARE AUTOHACK DETECTADO.\nCargas restantes: ${cargas - 1}\n¡Entrada forzada exitosa! Bypass completo.`);
                 finalizarHackeo(true, "BYPASS AUTOMÁTICO");
-                return; // Cortar la ejecución para que no abra el teclado
+                return;
             }
 
-            // 2. Si no tiene el software, jugar del modo tradicional manual
-            // Generar secuencia de 6 números aleatorios
+            // --- FASE 2: ESCANEO MANUAL (Probabilidad del 40%) ---
+            const scanRoll = Math.random();
+            const probabilidadEscaneo = scanRoll < 0.40;
+
+            if (!probabilidadEscaneo) {
+                alert("HACKEO DENEGADO: El escaneo de seguridad falló.");
+                ultimoHackAttempt = ahora;
+                return;
+            }
+
+            // --- FASE 3: INICIAR MINIJUEGO MANUAL ---
+            ultimoHackAttempt = ahora;
+            hackerTargetId = idDestinatario;
+            hackerTargetNombre = nombreDestinatario;
+            hackerSecuenciaActual = "";
+
             hackerSecuenciaTarget = "";
             for (let i = 0; i < 6; i++) {
                 hackerSecuenciaTarget += Math.floor(Math.random() * 10).toString();
             }
 
-            // Mostrar pantalla y configurar UI
             mostrarPantalla('pantalla-hackeo');
-            mezclarTecladoHacker(); // Mezclar los botones antes de mostrar
+            mezclarTecladoHacker();
             document.getElementById('hackerTargetName').textContent = nombreDestinatario;
             document.getElementById('hackerCodeInput').textContent = hackerSecuenciaTarget;
             document.getElementById('hackerLogs').innerHTML = `> Initializing bypass...<br>> Target: ${nombreDestinatario}<br>> Sequence generated.`;
 
-            // Iniciar temporizador (15 segundos - Aumentado por petición)
+            // Iniciar temporizador (15 segundos)
             let tiempoRestante = 100;
             const progress = document.getElementById('hackerProgress');
             if (hackerTimerInterval) clearInterval(hackerTimerInterval);
 
             hackerTimerInterval = setInterval(() => {
-                tiempoRestante -= 0.67; // 100 / (15s * 10 iteraciones por segundo)
+                tiempoRestante -= 0.67; 
                 progress.style.width = tiempoRestante + "%";
 
                 if (tiempoRestante <= 0) {
