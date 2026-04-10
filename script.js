@@ -2824,7 +2824,8 @@ const MERCADO_NEGRO_ITEMS = [
     { id: 'nombre_neon', icono: '🌈', nombre: 'Pintura Neón', precio: 100000, desc: 'Nombre brillante en el Ranking.' },
     { id: 'software_autohack', icono: '💾', nombre: 'Autohack v2.0 (6 Usos)', precio: 150000, desc: 'Hackeo automático sin mini-juego. ¡Pura potencia!' },
     { id: 'invisible', icono: '🌫️', nombre: 'Manto de Hacker', precio: 250000, desc: 'Nadie podrá ver tu saldo real.' },
-    { id: 'identidad_falsa', icono: '🆔', nombre: 'Identidad Falsa', precio: 500000, desc: 'Cambia tu nombre una vez.' }
+    { id: 'identidad_falsa', icono: '🆔', nombre: 'Identidad Falsa', precio: 500000, desc: 'Cambia tu nombre una vez.' },
+    { id: 'inmunidad_12h', icono: '🛡️💎', nombre: 'Inmunidad Diplomática (12h)', precio: 400000000, desc: 'Protección absoluta. No se acumula, reinicia el tiempo a 12h.' }
 ];
 
 function abrirAccesoMercado() {
@@ -2940,6 +2941,13 @@ function comprarItemMercado(idItem, precio) {
                     db.ref('usuarios/' + idUsuario).update({ nombreReal: nuevoNombre });
                     alert("Identidad cambiada en la base de datos central.");
                 }
+            }
+
+            if (idItem === 'inmunidad_12h') {
+                const doceHorasMs = 12 * 60 * 60 * 1000;
+                const nuevaFecha = Date.now() + doceHorasMs;
+                db.ref('usuarios/' + idUsuario).update({ firewallHasta: nuevaFecha });
+                alert("⭐ INMUNIDAD DIPLOMÁTICA ACTIVADA. Eres intocable por las próximas 12 horas. (Tiempo reiniciado a 12h)");
             }
         } else {
             alert("No tienes suficiente dinero 'lavado'.");
