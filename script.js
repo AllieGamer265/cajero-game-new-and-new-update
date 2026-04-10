@@ -89,7 +89,7 @@ function validarNombreUsuario(nombre) {
  */
 function validarMonto(monto) {
     const n = parseFloat(monto);
-    return !isNaN(n) && n > 0 && n <= 1e12;
+    return !isNaN(n) && n > 0 && isFinite(n);
 }
 
 // --- ESTADO LOCAL ---
