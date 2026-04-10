@@ -1793,10 +1793,6 @@ function transferirDinero() {
         alert("⚠️ El nombre del destinatario contiene caracteres no permitidos.");
         return;
     }
-    if (monto > 1000000) {
-        alert("⚠️ El máximo por transferencia es $1,000,000.");
-        return;
-    }
     if (limpiarNombre(destinatarioNombre) === limpiarNombre(usuarioActualNombre)) {
         alert("⚠️ No puedes transferirte a ti misma.");
         return;
