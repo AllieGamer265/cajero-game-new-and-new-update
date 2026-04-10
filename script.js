@@ -1071,8 +1071,28 @@ function cargarListaAdmin() {
             btnMenos.addEventListener('click', function () {
                 adminModificarSaldo(this.dataset.userId, -1000);
             });
+
+            // --- Botón: Monto Personalizado (Admin Power) ---
+            const btnMonto = document.createElement('button');
+            btnMonto.className = 'btn-mini';
+            btnMonto.style.background = '#f39c12';
+            btnMonto.textContent = '💰 $$$';
+            btnMonto.title = 'Enviar cualquier cantidad (Sin límites)';
+            btnMonto.addEventListener('click', () => {
+                const n = prompt(`¿Cuánto dinero quieres enviarle a ${u.nombreReal}?`);
+                if (n !== null && n !== "") {
+                    const valor = parseFloat(n);
+                    if (!isNaN(valor)) {
+                        adminModificarSaldo(id, valor);
+                        alert(`✅ Se han enviado $${formatearNumero(valor)} a ${u.nombreReal}.`);
+                    } else {
+                        alert("⚠️ Cantidad no válida.");
+                    }
+                }
+            });
             tdAcciones.appendChild(btnMas);
             tdAcciones.appendChild(btnMenos);
+            tdAcciones.appendChild(btnMonto);
 
             // Botón para entrar a la cuenta (Admin Magic)
             const btnEntrar = document.createElement('button');
