@@ -995,6 +995,123 @@ button.correct-path {
     animation: blinker 1s linear infinite;
 }
 
+/* --- ESTILOS RASCA-GAMER --- */
+.rasca-cell {
+    aspect-ratio: 1/1;
+    background: #333;
+    border: 2px solid #ff00ff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.rasca-cell:hover {
+    transform: scale(1.05);
+}
+
+.rasca-cell.hidden-content::after {
+    content: "❓";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #ff00ff, #8e44ad);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    z-index: 2;
+}
+
+.rasca-cell.revealed {
+    background: rgba(255, 255, 255, 0.1);
+    animation: revealPulse 0.5s ease;
+}
+
+.rasca-cell.revealed.winner {
+    background: rgba(241, 196, 15, 0.3);
+    border-color: #f1c40f;
+    box-shadow: 0 0 15px #f1c40f;
+}
+
+@keyframes revealPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); filter: brightness(2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* --- ESTILOS RASCA-GAMER --- */
+.rasca-cell {
+    aspect-ratio: 1/1;
+    background: #333;
+    border: 2px solid #ff00ff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+    user-select: none;
+}
+
+.rasca-cell:hover {
+    transform: scale(1.05);
+}
+
+.rasca-cell.hidden-content::after {
+    content: "❓";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #ff00ff, #8e44ad);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    z-index: 2;
+}
+
+.rasca-cell.revealed {
+    background: rgba(255, 255, 255, 0.1);
+    animation: revealPulse 0.5s ease;
+}
+
+.rasca-cell.revealed.winner {
+    background: rgba(241, 196, 15, 0.3);
+    border-color: #f1c40f;
+    box-shadow: 0 0 15px #f1c40f;
+}
+
+@keyframes revealPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); filter: brightness(2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.blinking {
+    animation: blink 0.8s infinite;
+}
+
 /* --- BOTÓN DE RESPUESTA RÁPIDA A AMENAZAS --- */
 .btn-responder-amenaza {
     background-color: #000 !important;

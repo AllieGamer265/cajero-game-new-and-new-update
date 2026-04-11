@@ -142,6 +142,10 @@
                     style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #c0392b, #000); color: #fff; border: 2px solid #f1c40f; font-size: 1rem; padding: 12px; font-weight: bold;">
                     🚨 GRAN ROBO AL BANCO
                 </button>
+                <button onclick="abrirRasca()"
+                    style="width: 100%; margin-top: 10px; background: linear-gradient(45deg, #ff00ff, #8e44ad); color: #fff; border: 2px solid #fff; font-size: 1rem; padding: 12px; font-weight: bold; text-shadow: 0 0 5px #000;">
+                    🎫 RASCA-GAMER ($5,000)
+                </button>
             </div>
 
             <!-- AVISO DE TROLLEO EN DASHBOARD -->
@@ -543,6 +547,48 @@
         <div class="hacker-timer-bar">
             <div id="hackerProgress"></div>
         </div>
+    </div>
+
+    <!-- PANTALLA: RASCA-GAMER -->
+    <div class="pantalla hidden" id="pantalla-rasca" style="background: #111; border: 4px solid #ff00ff; color: #fff;">
+        <h1 style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff; margin-bottom: 20px;">🎫 RASCA-GAMER</h1>
+        
+        <div id="cajaRasca" style="background: rgba(255,0,255,0.05); padding: 15px; border-radius: 15px; border: 2px dashed #ff00ff; margin-bottom: 20px;">
+            <div id="gridRasca" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                <!-- 9 espacios de rasca -->
+            </div>
+        </div>
+
+        <div id="controlesRasca" style="text-align: center;">
+            <div id="vallaInicioRasca">
+                <p style="margin-bottom: 10px;">Costo del cartón: <strong>$5,000</strong></p>
+                <button onclick="comprarRasca()" 
+                        style="width: 100%; background: linear-gradient(45deg, #ff00ff, #8e44ad); color: white; padding: 15px; font-weight: bold; border: 2px solid #fff; border-radius: 10px; cursor: pointer;">
+                    COMPRAR NUEVO CARTÓN 🎫
+                </button>
+            </div>
+            
+            <div id="vallaJuegoRasca" style="display: none;">
+                <p style="color: #f1c40f; font-weight: bold; margin-bottom: 15px;">¡RASCA TODOS LOS CUADROS!</p>
+                <button onclick="abrirRasca()" style="width: 100%; background: #7f8c8d; border: none; padding: 10px; color: white; border-radius: 5px;">LIMPIAR / NUEVO</button>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; font-size: 0.7rem; text-align: left;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #ff00ff;">TABLA DE PREMIOS (x3 Iguales):</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                <span>🍒🍒🍒 = $10,000</span>
+                <span>🍋🍋🍋 = $25,000</span>
+                <span>🔔🔔🔔 = $50,000</span>
+                <span>💎💎💎 = $250,000</span>
+                <span style="grid-column: span 2; color: #f1c40f; font-weight: bold; text-align: center;">7️⃣7️⃣7️⃣ = $1,000,000 ¡JACKPOT!</span>
+            </div>
+        </div>
+
+        <button onclick="mostrarPantalla('pantalla-cajero')"
+            style="margin-top: 20px; width: 100%; background: #222; color: #ff00ff; border: 1px solid #ff00ff; padding: 10px; font-size: 0.8rem; cursor: pointer; border-radius: 5px; font-family: monospace;">
+            SALIR DEL JUEGO 🚪
+        </button>
     </div>
 
 

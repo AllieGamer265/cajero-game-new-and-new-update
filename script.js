@@ -121,6 +121,13 @@ let roboJuegoActivo = false;
 let roboContribuidoresRef = null;
 let roboEscuchandoBoveda = false;
 
+// --- VARIABLES RASCA-GAMER ---
+let rascaJuegoActivo = false;
+let rascaSimbolos = [];
+let rascaRevelados = 0;
+let rascaCosto = 5000;
+let rascaEmojis = ["🍒", "🍋", "🔔", "💎", "7️⃣"];
+
 // =============================================================
 // SESIÓN Y TIMEOUT DE INACTIVIDAD (Fase 3.2)
 // Si el usuario no hace nada en 30 minutos, se cierra la sesión
@@ -238,7 +245,7 @@ function mostrarPantalla(idPantalla) {
     document.querySelectorAll('.pantalla').forEach(p => p.classList.add('hidden'));
 
     // Lista de pantallas que viven FUERA del div gris del cajero
-    const pantallasExternas = ['pantalla-ranking', 'pantalla-duelo', 'pantalla-hackeo', 'pantalla-mercado'];
+    const pantallasExternas = ['pantalla-ranking', 'pantalla-duelo', 'pantalla-hackeo', 'pantalla-mercado', 'pantalla-rasca'];
 
     if (idPantalla === 'pantalla-admin') {
         cajero.style.display = 'none';
@@ -452,6 +459,10 @@ function entrarAlCajero(idUsuario, datosIniciales) {
             if (!document.getElementById('pantalla-tienda').classList.contains('hidden')) {
                 document.getElementById('saldoTiendaDisplay').textContent = (datos.saldo || 0).toFixed(2);
                 renderizarTienda(datos);
+            }
+
+            if (!document.getElementById('pantalla-rasca').classList.contains('hidden')) {
+                document.getElementById('saldoRascaDisplay').textContent = (datos.saldo || 0).toFixed(2);
             }
 
             // Mostrar/Ocultar botón del Mercado Negro si tiene invitación
@@ -3117,7 +3128,7 @@ function comprarExtorsionUsuario() {
                     mensaje: `¡Hola amigo! ¿Estás por ahí? Alguien te mandó un saludo especial... ¡uy!`
                 });
 
-                registrarMovimiento(idSender, "SERVICIO OSCURO", cost, `Saludo enviado a ${victimName}`, false);
+                registrarMovimiento(idSender, "SERVICIO OSCURO", cost, `Saludo enviado to ${victimName}`, false);
                 alert(`💀 Saludo enviado. ${sanitizar(victimName)} tiene 24 horas para devolverte el saludo... o habrá un 'uy' de su parte.`);
                 document.getElementById('targetExtorsion').value = ''; // Limpiar input
             } else {
@@ -3125,4 +3136,149 @@ function comprarExtorsionUsuario() {
             }
         });
     });
+}
+
+// --- LÓGICA DE RASCA-GAMER ---
+
+function abrirRasca() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+        document.getElementById('saldoRascaDisplay').textContent = (snap.val() || 0).toFixed(2);
+    });
+
+    rascaJuegoActivo = false;
+    rascaRevelados = 0;
+    
+    // Limpiar grid
+    const grid = document.getElementById('gridRasca');
+    grid.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'rasca-cell'; // Solo cuadro vacío al inicio
+        grid.appendChild(cell);
+    }
+
+    document.getElementById('vallaInicioRasca').style.display = 'block';
+    document.getElementById('vallaJuegoRasca').style.display = 'none';
+    mostrarPantalla('pantalla-rasca');
+}
+
+function comprarRasca() {
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+
+    db.ref('usuarios/' + idUsuario).transaction(user => {
+        if (user && user.saldo >= rascaCosto) {
+            user.saldo -= rascaCosto;
+            return user;
+        }
+    }, (error, committed) => {
+        if (committed) {
+            iniciarJuegoRasca();
+            registrarMovimiento(idUsuario, "RASCA COMPRA", rascaCosto, "Cartón de Rasca-Gamer 🎫", false);
+        } else {
+            alert("No tienes saldo suficiente ($5,000).");
+        }
+    });
+}
+
+function iniciarJuegoRasca() {
+    rascaJuegoActivo = true;
+    rascaRevelados = 0;
+    rascaSimbolos = [];
+
+    // Generar símbolos con probabilidades
+    // 7️⃣ (Bajísimo), 💎 (Bajo), 🔔 (Medio), 🍋 (Alto), 🍒 (Muy Alto)
+    for (let i = 0; i < 9; i++) {
+        const r = Math.random();
+        if (r < 0.02) rascaSimbolos.push("7️⃣");      // 2%
+        else if (r < 0.10) rascaSimbolos.push("💎"); // 8%
+        else if (r < 0.25) rascaSimbolos.push("🔔"); // 15%
+        else if (r < 0.55) rascaSimbolos.push("🍋"); // 30%
+        else rascaSimbolos.push("🍒");               // 45%
+    }
+
+    // A veces forzamos una victoria para que no sea imposible (10% de las veces)
+    if (Math.random() < 0.1) {
+        const emojiGanado = rascaEmojis[Math.floor(Math.random() * 3)]; // 🍒, 🍋 o 🔔
+        let puestos = 0;
+        while(puestos < 3) {
+            let pos = Math.floor(Math.random() * 9);
+            if (rascaSimbolos[pos] !== emojiGanado) {
+                rascaSimbolos[pos] = emojiGanado;
+                puestos++;
+            }
+        }
+    }
+
+    const grid = document.getElementById('gridRasca');
+    grid.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'rasca-cell hidden-content';
+        cell.onclick = () => revelarCeldaRasca(i, cell);
+        grid.appendChild(cell);
+    }
+
+    document.getElementById('vallaInicioRasca').style.display = 'none';
+    document.getElementById('vallaJuegoRasca').style.display = 'block';
+    
+    const idUsuario = limpiarNombre(usuarioActualNombre);
+    db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+        document.getElementById('saldoRascaDisplay').textContent = (snap.val() || 0).toFixed(2);
+    });
+}
+
+function revelarCeldaRasca(idx, el) {
+    if (!rascaJuegoActivo || el.classList.contains('revealed')) return;
+
+    el.classList.remove('hidden-content');
+    el.classList.add('revealed');
+    el.textContent = rascaSimbolos[idx];
+    rascaRevelados++;
+
+    if (rascaRevelados === 9) {
+        verificarGanadorRasca();
+    }
+}
+
+function verificarGanadorRasca() {
+    rascaJuegoActivo = false;
+    const conteo = {};
+    rascaSimbolos.forEach(s => {
+        conteo[s] = (conteo[s] || 0) + 1;
+    });
+
+    let gano = false;
+    let premio = 0;
+    let simboloGanador = "";
+
+    // Revisar si hay 3 o más de algún símbolo
+    if (conteo["7️⃣"] >= 3) { premio = 1000000; simboloGanador = "7️⃣"; gano = true; }
+    else if (conteo["💎"] >= 3) { premio = 250000; simboloGanador = "💎"; gano = true; }
+    else if (conteo["🔔"] >= 3) { premio = 50000; simboloGanador = "🔔"; gano = true; }
+    else if (conteo["🍋"] >= 3) { premio = 25000; simboloGanador = "🍋"; gano = true; }
+    else if (conteo["🍒"] >= 3) { premio = 10000; simboloGanador = "🍒"; gano = true; }
+
+    if (gano) {
+        // Resaltar celdas ganadoras
+        const cells = document.querySelectorAll('.rasca-cell');
+        cells.forEach((c, i) => {
+            if (rascaSimbolos[i] === simboloGanador) {
+                c.classList.add('winner');
+            }
+        });
+
+        const idUsuario = limpiarNombre(usuarioActualNombre);
+        db.ref('usuarios/' + idUsuario + '/saldo').transaction(s => (s || 0) + premio);
+        registrarMovimiento(idUsuario, "RASCA PREMIO", premio, `¡Ganaste con ${simboloGanador} x3! 🏆`, true);
+        
+        // Efecto visual extra
+        alert(`🎊 ¡FELICIDADES! 🎊\nEncontraste 3 [${simboloGanador}] y ganaste $${formatearNumero(premio)}`);
+        
+        db.ref('usuarios/' + idUsuario + '/saldo').once('value').then(snap => {
+            document.getElementById('saldoRascaDisplay').textContent = snap.val().toFixed(2);
+        });
+    } else {
+        alert("🍀 Casi... no hubo suerte esta vez. ¡Inténtalo de nuevo!");
+    }
 }
