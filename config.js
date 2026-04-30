@@ -20,4 +20,10 @@ const firebaseConfig = {
 // Cambia estos valores por los que quieras usar.
 // NUNCA compartas este archivo públicamente.
 const ADMIN_USER = "la pro XD";
-const ADMIN_PIN = "2015";
+const ADMIN_PIN = "2015"; // Usado como PIN corto
+
+// --- NUEVA MÁXIMA SEGURIDAD ---
+const ADMIN_PASS_FUERTE = "SuperPro2026!"; // Contraseña fuerte (Opción 1)
+const ADMIN_PREGUNTA = "¿Quién es la verdadera jefa de este banco?"; // Pregunta secreta (Opción 3)
+const ADMIN_RESPUESTA = "yo"; // Respuesta secreta (Opción 3 - en minúsculas)
+const ADMIN_EMOJIS_SECRETOS = ["👑", "🎮"]; // Secuencia de emojis (Opción 2)

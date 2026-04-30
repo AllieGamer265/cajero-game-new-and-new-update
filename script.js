@@ -203,30 +203,155 @@ window.onload = function () {
     // --- PUERTA INVISIBLE PARA LA PRO ---
     let clicsAdmin = 0;
     let timerAdmin = null;
+    let intentosAdminFallidos = 0;
+    let bloqueadoAdmin = false;
 
     const titulos = ['titulo-secreto-reg', 'titulo-secreto-login'];
+    
+    function manejarFalloAdmin() {
+        intentosAdminFallidos++;
+        if (intentosAdminFallidos >= 3) {
+            bloqueadoAdmin = true;
+            document.body.innerHTML = "<div style='background:black;color:#0f0;text-align:center;padding:50px;font-family:monospace;height:100vh;display:flex;flex-direction:column;justify-content:center;'><h1>🚨 ALARMA DE SEGURIDAD MÁXIMA 🚨</h1><p>INTRUSO DETECTADO. EL SISTEMA SE HA BLOQUEADO PERMANENTEMENTE.</p></div>";
+        } else {
+            alert(`⛔ Acceso Denegado. Fallo en el protocolo de seguridad. Intento ${intentosAdminFallidos}/3.`);
+        }
+    }
+
+    function iniciarFaseEmojis() {
+        const emojisDisponibles = ["🔥", "🍕", "🎮", "👑", "💎", "⚡", "🍒", "🪙"];
+        // Barajar opciones visualmente
+        emojisDisponibles.sort(() => Math.random() - 0.5);
+        
+        let secuenciaIngresada = [];
+        
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
+        overlay.style.zIndex = '9999';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.color = '#0f0';
+        overlay.style.fontFamily = 'monospace';
+
+        const titulo = document.createElement('h2');
+        titulo.textContent = "FASE 3: PATRÓN VISUAL";
+        titulo.style.marginBottom = '20px';
+        overlay.appendChild(titulo);
+
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        grid.style.gap = '15px';
+        
+        emojisDisponibles.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.textContent = emoji;
+            btn.style.fontSize = '3rem';
+            btn.style.padding = '15px';
+            btn.style.background = '#111';
+            btn.style.border = '2px solid #0f0';
+            btn.style.cursor = 'pointer';
+            btn.style.borderRadius = '10px';
+            btn.style.transition = '0.3s';
+            
+            btn.onclick = () => {
+                secuenciaIngresada.push(emoji);
+                btn.style.background = '#27ae60'; // Marcar seleccionado
+                btn.disabled = true;
+                
+                if (secuenciaIngresada.length === ADMIN_EMOJIS_SECRETOS.length) {
+                    // Validar secuencia
+                    let correcto = true;
+                    for (let i = 0; i < ADMIN_EMOJIS_SECRETOS.length; i++) {
+                        if (secuenciaIngresada[i] !== ADMIN_EMOJIS_SECRETOS[i]) {
+                            correcto = false;
+                        }
+                    }
+                    
+                    document.body.removeChild(overlay);
+                    
+                    if (correcto) {
+                        intentosAdminFallidos = 0;
+                        alert("✅ PROTOCOLO DE SEGURIDAD COMPLETADO. BIENVENIDA, JEFA.");
+                        loginAdminAuto();
+                    } else {
+                        manejarFalloAdmin();
+                    }
+                }
+            };
+            grid.appendChild(btn);
+        });
+        
+        overlay.appendChild(grid);
+        
+        const textoInfo = document.createElement('p');
+        textoInfo.textContent = `Selecciona los ${ADMIN_EMOJIS_SECRETOS.length} símbolos secretos en orden exacto.`;
+        textoInfo.style.marginTop = '25px';
+        overlay.appendChild(textoInfo);
+        
+        const btnCancelar = document.createElement('button');
+        btnCancelar.textContent = "[ ABORTAR MISIÓN ]";
+        btnCancelar.style.marginTop = '20px';
+        btnCancelar.style.padding = '10px 20px';
+        btnCancelar.style.background = '#c0392b';
+        btnCancelar.style.color = 'white';
+        btnCancelar.style.border = 'none';
+        btnCancelar.style.fontWeight = 'bold';
+        btnCancelar.style.cursor = 'pointer';
+        btnCancelar.onclick = () => {
+            document.body.removeChild(overlay);
+            manejarFalloAdmin(); // Cancelar también cuenta como fallo
+        };
+        overlay.appendChild(btnCancelar);
+
+        document.body.appendChild(overlay);
+    }
+
     titulos.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('click', () => {
+                if (bloqueadoAdmin) {
+                    alert("🚨 SISTEMA BLOQUEADO. SE HA NOTIFICADO A LA POLICÍA CIBERNÉTICA. 🚨");
+                    return;
+                }
+
                 clicsAdmin++;
                 clearTimeout(timerAdmin);
 
-                // Si pasan 2 segundos sin clics, el contador se reinicia (para que sea "rápido")
+                // Si pasan 2 segundos sin clics, el contador se reinicia
                 timerAdmin = setTimeout(() => { clicsAdmin = 0; }, 2000);
 
                 if (clicsAdmin >= 5) {
                     clicsAdmin = 0;
-                    const pass = prompt("🔑 Identidad Pro Detectada.\nIngresa la Palabra Secreta:");
-
-                    // La palabra secreta es el ADMIN_PIN por ahora, 
-                    // pero solo aparece si haces los 5 clics.
-                    if (pass === ADMIN_PIN) {
-                        alert("✅ Acceso Concedido, Jefa.");
-                        loginAdminAuto();
-                    } else if (pass !== null) {
-                        alert("⛔ Intento de hackeo detectado. Sistema bloqueado.");
+                    
+                    // --- FASE 1: PREGUNTA DE SEGURIDAD ---
+                    const resp = prompt(`🛡️ SEGURIDAD MÁXIMA - FASE 1\n${ADMIN_PREGUNTA}`);
+                    if (resp === null) return;
+                    
+                    if (resp.trim().toLowerCase() !== ADMIN_RESPUESTA.toLowerCase()) {
+                        manejarFalloAdmin();
+                        return;
                     }
+
+                    // --- FASE 2: CONTRASEÑA FUERTE ---
+                    const passFuerte = prompt("🔑 PREGUNTA SUPERADA - FASE 2\nIngresa la Contraseña Maestra:");
+                    if (passFuerte === null) return;
+
+                    if (passFuerte !== ADMIN_PASS_FUERTE) {
+                        manejarFalloAdmin();
+                        return;
+                    }
+                    
+                    // --- FASE 3: PATRÓN DE EMOJIS ---
+                    iniciarFaseEmojis();
                 }
             });
         }
