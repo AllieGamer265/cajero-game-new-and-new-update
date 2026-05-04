@@ -980,8 +980,9 @@ function verRanking() {
             const u = child.val();
             const saldoBase = parsearMontoSeguro(u.saldo);
             const coins = parseInt(u.criptomonedas || 0);
-            // Calculamos riqueza pero ordenaremos por saldo (dinero)
             const riquezaTotal = saldoBase + (coins * precioActual);
+
+            console.log(`[Cargando] Usuario: ${u.nombreReal} | Saldo: ${saldoBase} | Riqueza: ${riquezaTotal}`);
 
             usuariosArray.push({
                 id: child.key,
@@ -995,12 +996,14 @@ function verRanking() {
             });
         });
 
-        // ORDENAMIENTO DE HIERRO: Ordenamos por SALDO (dinero) para que coincida con lo que ven los usuarios
+        // ORDENAMIENTO MATEMÁTICO ABSOLUTO
         usuariosArray.sort((a, b) => {
-            const rA = a.saldo || 0;
-            const rB = b.saldo || 0;
-            if (rB > rA) return 1;
-            if (rB < rA) return -1;
+            const vA = Number(a.riquezaTotal) || 0;
+            const vB = Number(b.riquezaTotal) || 0;
+            
+            // Si el número es demasiado grande para restarlo, usamos comparación lógica
+            if (vB > vA) return 1;
+            if (vB < vA) return -1;
             return 0;
         });
 
