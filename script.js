@@ -971,11 +971,16 @@ function verRanking() {
         let usuariosArray = [];
         snapshot.forEach(child => {
             const u = child.val();
-            const s = parsearMontoSeguro(u.saldo);
-            const c = parseInt(u.criptomonedas || 0);
+            const saldoBase = parsearMontoSeguro(u.saldo);
+            const coins = parseFloat(u.criptomonedas || 0);
+            const precioCripto = parseFloat(typeof precioActual !== 'undefined' ? precioActual : 0) || 0;
+            
+            // Riqueza = Efectivo + (Criptos * Precio)
+            const riquezaCalculada = saldoBase + (coins * precioCripto);
+
             usuariosArray.push({
                 nombre: u.nombreReal || child.key,
-                riqueza: s + (c * precioActual),
+                riqueza: riquezaCalculada,
                 id: child.key,
                 icono: u.iconoActivo || '',
                 items: u.itemsMercado || [],
@@ -983,8 +988,8 @@ function verRanking() {
             });
         });
 
-        // ORDENAR: El más rico arriba
-        usuariosArray.sort((a, b) => (b.riqueza > a.riqueza ? 1 : -1));
+        // ORDENAMIENTO MATEMÁTICO PURO
+        usuariosArray.sort((a, b) => b.riqueza - a.riqueza);
 
         // Tomamos solo a los 10 mejores.
         const top10 = usuariosArray.slice(0, 10);
