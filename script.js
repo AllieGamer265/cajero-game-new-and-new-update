@@ -962,7 +962,6 @@ function parsearMontoSeguro(val) {
 }
 
 function verRanking() {
-    console.log("--- CARGANDO RANKING (Versión 4.0) ---");
     mostrarPantalla('pantalla-ranking');
     const lista = document.getElementById('listaRanking');
     lista.innerHTML = '<li>Cargando...</li>';
@@ -1050,12 +1049,11 @@ function verRanking() {
 
             const divRight = document.createElement('div');
             divRight.style.fontFamily = 'monospace';
-            divRight.style.fontSize = '0.9rem'; // Un poco más pequeño para que quepa el número largo
+            divRight.style.fontSize = '1.1rem';
             divRight.style.textAlign = 'right';
             if (hasInvisible) divRight.classList.add('balance-blurred');
             
-            // MOSTRAMOS EL NÚMERO REAL PARA INVESTIGAR
-            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">RIQUEZA REAL:</span>${user.riqueza.toExponential(2)}`;
+            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.riqueza)}`;
 
             li.appendChild(divLeft);
             li.appendChild(divRight);
