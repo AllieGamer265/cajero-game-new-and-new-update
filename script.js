@@ -578,7 +578,7 @@ function entrarAlCajero(idUsuario, datosIniciales) {
             // Agregar el nombre como texto puro (nunca HTML)
             displayEl.appendChild(document.createTextNode(sanitizar(datos.nombreReal || '')));
 
-            document.getElementById('saldoDisplay').textContent = (datos.saldo || 0).toFixed(2);
+            document.getElementById('saldoDisplay').textContent = formatearNumero(parsearMontoSeguro(datos.saldo));
             document.getElementById('txtMisCriptos').textContent = datos.criptomonedas || 0;
 
             if (!document.getElementById('pantalla-tienda').classList.contains('hidden')) {
@@ -948,6 +948,19 @@ function calcularResultadoSlots() {
 /**
  * Obtiene la lista de todos los usuarios, los ordena por saldo y muestra el Top 10.
  */
+/**
+ * Utilidad robusta para convertir cualquier valor de la DB en un número real.
+ * Elimina caracteres extraños y maneja strings con formatos incorrectos.
+ */
+function parsearMontoSeguro(val) {
+    if (typeof val === 'number') return isFinite(val) ? val : 0;
+    if (!val) return 0;
+    // Permitimos números, puntos, signo menos y la notación científica (e, +)
+    const limpio = String(val).replace(/[^0-9.eE+-]/g, '');
+    const num = parseFloat(limpio);
+    return isNaN(num) ? 0 : num;
+}
+
 function verRanking() {
     mostrarPantalla('pantalla-ranking');
     const lista = document.getElementById('listaRanking');
@@ -965,18 +978,31 @@ function verRanking() {
         // Convertimos el objeto de Firebase en un array para poder ordenarlo.
         snapshot.forEach(child => {
             const u = child.val();
+            const saldoBase = parsearMontoSeguro(u.saldo);
+            const coins = parseInt(u.criptomonedas || 0);
+            // Calculamos riqueza pero ordenaremos por saldo (dinero)
+            const riquezaTotal = saldoBase + (coins * precioActual);
+
             usuariosArray.push({
                 id: child.key,
                 nombre: u.nombreReal,
-                saldo: u.saldo || 0,
+                saldo: saldoBase,
+                riquezaTotal: riquezaTotal,
+                criptos: coins,
                 iconoActivo: u.iconoActivo || '',
                 firewallHasta: u.firewallHasta || 0,
                 itemsMercado: u.itemsMercado || []
             });
         });
 
-        // Ordenamos los usuarios de mayor a menor saldo.
-        usuariosArray.sort((a, b) => b.saldo - a.saldo);
+        // ORDENAMIENTO DE HIERRO: Ordenamos por SALDO (dinero) para que coincida con lo que ven los usuarios
+        usuariosArray.sort((a, b) => {
+            const rA = a.saldo || 0;
+            const rB = b.saldo || 0;
+            if (rB > rA) return 1;
+            if (rB < rA) return -1;
+            return 0;
+        });
 
         // Tomamos solo a los 10 mejores.
         const top10 = usuariosArray.slice(0, 10);
@@ -996,16 +1022,17 @@ function verRanking() {
             const firewallHasta = user.firewallHasta || 0;
             const tieneFirewall = firewallHasta > Date.now();
 
-            // Solo mostramos el botón de hackear si el usuario no somos nosotras mismas.
-            // Construir el item del ranking de forma segura (anti-XSS)
             const li = document.createElement('li');
             li.className = `rank-item ${claseExtra}`;
 
             // Div izquierdo: posición + nombre
             const divLeft = document.createElement('div');
-
-            const hasNeon = user.itemsMercado.includes('nombre_neon');
-            const hasInvisible = user.itemsMercado.includes('invisible');
+            
+            // Convertir itemsMercado a array de forma segura por si Firebase lo devuelve como objeto
+            const items = user.itemsMercado || [];
+            const itemsArray = Array.isArray(items) ? items : Object.values(items);
+            const hasNeon = itemsArray.includes('nombre_neon');
+            const hasInvisible = itemsArray.includes('invisible');
 
             const spanPos = document.createElement('span');
             spanPos.className = 'rank-pos';
@@ -1027,7 +1054,6 @@ function verRanking() {
                 const btnHack = document.createElement('button');
                 btnHack.className = 'btn-hack';
                 btnHack.textContent = 'HACK';
-                // Guardamos los datos en dataset para evitar inyección por concatenación
                 btnHack.dataset.targetId = user.id;
                 btnHack.dataset.targetNombre = user.nombre;
                 btnHack.addEventListener('click', function () {
@@ -1047,12 +1073,15 @@ function verRanking() {
                 divLeft.appendChild(btnDuelo);
             }
 
-            // Div derecho: saldo
+            // Div derecho: Riqueza Total
             const divRight = document.createElement('div');
             divRight.style.fontFamily = 'monospace';
             divRight.style.fontSize = '1.1rem';
+            divRight.style.textAlign = 'right';
             if (hasInvisible) divRight.classList.add('balance-blurred');
-            divRight.textContent = `$${formatearNumero(user.saldo)}`;
+            
+            // Mostramos el saldo (dinero) para que la clasificación tenga sentido
+            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.saldo)}`;
 
             li.appendChild(divLeft);
             li.appendChild(divRight);
@@ -1285,7 +1314,9 @@ function cargarListaAdmin() {
  */
 function adminModificarSaldo(idUsuario, cantidad) {
     db.ref('usuarios/' + idUsuario + '/saldo').transaction((saldoActual) => {
-        return (saldoActual || 0) + cantidad;
+        // Forzamos que la base sea un número real antes de sumar
+        const base = parsearMontoSeguro(saldoActual);
+        return base + cantidad;
     });
 }
 
@@ -1947,20 +1978,20 @@ function transferirDinero() {
         // === ACTUALIZACIÓN ATÓMICA MULTI-RUTA ===
         // Leemos el saldo actual del emisor para hacer el cálculo.
         db.ref('usuarios/' + miId + '/saldo').once('value').then(miSaldoSnap => {
-            const miSaldoActual = miSaldoSnap.val() || 0;
+            // Forzamos que los saldos sean números reales para evitar concatenación de strings
+            const miSaldoActual = parsearMontoSeguro(miSaldoSnap.val());
+            const destSaldoActual = parsearMontoSeguro(snapshot.val().saldo);
 
             if (miSaldoActual < monto) {
                 alert("❌ Fondos insuficientes.");
                 return;
             }
 
-            const destSaldoActual = (snapshot.val() && snapshot.val().saldo) || 0;
-
             // Un solo objeto con TODAS las rutas a actualizar.
             // Firebase aplica este objeto en una transacción atómica.
             const updates = {};
-            updates['usuarios/' + miId + '/saldo'] = miSaldoActual - monto;
-            updates['usuarios/' + destId + '/saldo'] = destSaldoActual + monto;
+            updates['usuarios/' + miId + '/saldo'] = Number(miSaldoActual - monto);
+            updates['usuarios/' + destId + '/saldo'] = Number(destSaldoActual + monto);
 
             // Aplicar las dos actualizaciones de saldo en UNA sola escritura.
             db.ref().update(updates)
