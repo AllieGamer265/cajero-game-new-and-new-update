@@ -962,7 +962,7 @@ function parsearMontoSeguro(val) {
 }
 
 function verRanking() {
-    console.log("--- CARGANDO RANKING (Versión 3.0) ---");
+    console.log("--- CARGANDO RANKING (Versión 4.0) ---");
     mostrarPantalla('pantalla-ranking');
     const lista = document.getElementById('listaRanking');
     lista.innerHTML = '<li>Cargando...</li>';
@@ -988,8 +988,12 @@ function verRanking() {
             });
         });
 
-        // ORDENAMIENTO MATEMÁTICO PURO
-        usuariosArray.sort((a, b) => b.riqueza - a.riqueza);
+        // ORDENAMIENTO LÓGICO EXPLÍCITO
+        usuariosArray.sort((a, b) => {
+            if (b.riqueza > a.riqueza) return 1;
+            if (b.riqueza < a.riqueza) return -1;
+            return 0;
+        });
 
         // Tomamos solo a los 10 mejores.
         const top10 = usuariosArray.slice(0, 10);
@@ -1046,11 +1050,12 @@ function verRanking() {
 
             const divRight = document.createElement('div');
             divRight.style.fontFamily = 'monospace';
-            divRight.style.fontSize = '1.1rem';
+            divRight.style.fontSize = '0.9rem'; // Un poco más pequeño para que quepa el número largo
             divRight.style.textAlign = 'right';
             if (hasInvisible) divRight.classList.add('balance-blurred');
             
-            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.riqueza)}`;
+            // MOSTRAMOS EL NÚMERO REAL PARA INVESTIGAR
+            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">RIQUEZA REAL:</span>${user.riqueza.toExponential(2)}`;
 
             li.appendChild(divLeft);
             li.appendChild(divRight);
