@@ -978,7 +978,8 @@ function verRanking() {
                 riqueza: s + (c * precioActual),
                 id: child.key,
                 icono: u.iconoActivo || '',
-                items: u.itemsMercado || []
+                items: u.itemsMercado || [],
+                firewallHasta: u.firewallHasta || 0
             });
         });
 
@@ -1003,15 +1004,27 @@ function verRanking() {
             const li = document.createElement('li');
             li.className = `rank-item ${claseExtra}`;
 
-            // Div izquierdo: posición + nombre
+            // Datos visuales avanzados
+            const items = user.items || [];
+            const itemsArray = Array.isArray(items) ? items : Object.values(items);
+            const hasNeon = itemsArray.includes('nombre_neon');
+            const hasInvisible = itemsArray.includes('invisible');
+            const tieneFirewall = (user.firewallHasta || 0) > Date.now();
+
             const divLeft = document.createElement('div');
-            
             const spanPos = document.createElement('span');
             spanPos.className = 'rank-pos';
+            if (hasNeon) spanPos.classList.add('name-neon');
             spanPos.textContent = `${icono} ${user.icono} ${sanitizar(user.nombre)} `;
+            
+            if (tieneFirewall) {
+                const shield = document.createElement('span');
+                shield.className = 'firewall-shield';
+                shield.textContent = '🛡️';
+                spanPos.appendChild(shield);
+            }
             divLeft.appendChild(spanPos);
 
-            // Botones de acción (solo si no es el usuario actual)
             if (user.id !== idUsuarioActual) {
                 const btnHack = document.createElement('button');
                 btnHack.className = 'btn-hack';
@@ -1026,11 +1039,11 @@ function verRanking() {
                 divLeft.appendChild(btnDuelo);
             }
 
-            // Div derecho: Riqueza Total
             const divRight = document.createElement('div');
             divRight.style.fontFamily = 'monospace';
             divRight.style.fontSize = '1.1rem';
             divRight.style.textAlign = 'right';
+            if (hasInvisible) divRight.classList.add('balance-blurred');
             
             divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.riqueza)}`;
 
