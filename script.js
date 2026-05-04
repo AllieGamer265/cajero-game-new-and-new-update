@@ -987,6 +987,7 @@ function verRanking() {
 
         // Tomamos solo a los 10 mejores.
         const top10 = usuariosArray.slice(0, 10);
+        const idUsuarioActual = limpiarNombre(usuarioActualNombre);
 
         lista.innerHTML = '';
         top10.forEach((user, index) => {
@@ -999,35 +1000,15 @@ function verRanking() {
             if (pos === 2) { claseExtra = 'rank-2'; icono = '🥈'; }
             if (pos === 3) { claseExtra = 'rank-3'; icono = '🥉'; }
 
-            const skinIcono = user.iconoActivo || '';
-            const firewallHasta = user.firewallHasta || 0;
-            const tieneFirewall = firewallHasta > Date.now();
-
             const li = document.createElement('li');
             li.className = `rank-item ${claseExtra}`;
 
             // Div izquierdo: posición + nombre
             const divLeft = document.createElement('div');
             
-            // Convertir itemsMercado a array de forma segura por si Firebase lo devuelve como objeto
-            const items = user.itemsMercado || [];
-            const itemsArray = Array.isArray(items) ? items : Object.values(items);
-            const hasNeon = itemsArray.includes('nombre_neon');
-            const hasInvisible = itemsArray.includes('invisible');
-
             const spanPos = document.createElement('span');
             spanPos.className = 'rank-pos';
-            if (hasNeon) spanPos.classList.add('name-neon');
-            
-            spanPos.textContent = `${icono} ${skinIcono} ${sanitizar(user.nombre)} `;
-
-            if (tieneFirewall) {
-                const shield = document.createElement('span');
-                shield.className = 'firewall-shield';
-                shield.title = 'Protección Activa';
-                shield.textContent = '🛡️';
-                spanPos.appendChild(shield);
-            }
+            spanPos.textContent = `${icono} ${user.icono} ${sanitizar(user.nombre)} `;
             divLeft.appendChild(spanPos);
 
             // Botones de acción (solo si no es el usuario actual)
@@ -1035,22 +1016,13 @@ function verRanking() {
                 const btnHack = document.createElement('button');
                 btnHack.className = 'btn-hack';
                 btnHack.textContent = 'HACK';
-                btnHack.dataset.targetId = user.id;
-                btnHack.dataset.targetNombre = user.nombre;
-                btnHack.addEventListener('click', function () {
-                    intentarHackear(this.dataset.targetId, this.dataset.targetNombre);
-                });
+                btnHack.addEventListener('click', () => intentarHackear(user.id, user.nombre));
+                divLeft.appendChild(btnHack);
 
                 const btnDuelo = document.createElement('button');
                 btnDuelo.className = 'btn-hack btn-duelo';
                 btnDuelo.textContent = 'RETAR ⚔️';
-                btnDuelo.dataset.targetId = user.id;
-                btnDuelo.dataset.targetNombre = user.nombre;
-                btnDuelo.addEventListener('click', function () {
-                    intentarRetar(this.dataset.targetId, this.dataset.targetNombre);
-                });
-
-                divLeft.appendChild(btnHack);
+                btnDuelo.addEventListener('click', () => intentarRetar(user.id, user.nombre));
                 divLeft.appendChild(btnDuelo);
             }
 
@@ -1059,10 +1031,8 @@ function verRanking() {
             divRight.style.fontFamily = 'monospace';
             divRight.style.fontSize = '1.1rem';
             divRight.style.textAlign = 'right';
-            if (hasInvisible) divRight.classList.add('balance-blurred');
             
-            // Mostramos el saldo (dinero) para que la clasificación tenga sentido
-            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.saldo)}`;
+            divRight.innerHTML = `<span style="font-size: 0.7rem; color: #aaa; display: block;">SALDO:</span>$${formatearNumero(user.riqueza)}`;
 
             li.appendChild(divLeft);
             li.appendChild(divRight);
