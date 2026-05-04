@@ -962,50 +962,28 @@ function parsearMontoSeguro(val) {
 }
 
 function verRanking() {
+    console.log("--- CARGANDO RANKING (Versión 3.0) ---");
     mostrarPantalla('pantalla-ranking');
     const lista = document.getElementById('listaRanking');
-    lista.innerHTML = '<li style="text-align:center;">Cargando cracks...</li>';
+    lista.innerHTML = '<li>Cargando...</li>';
 
     db.ref('usuarios').once('value').then(snapshot => {
-        if (!snapshot.exists()) {
-            lista.innerHTML = '<li>Nadie juega :(</li>';
-            return;
-        }
-
-        const usuariosArray = [];
-        const idUsuarioActual = limpiarNombre(usuarioActualNombre);
-
-        // Convertimos el objeto de Firebase en un array para poder ordenarlo.
+        let usuariosArray = [];
         snapshot.forEach(child => {
             const u = child.val();
-            const saldoBase = parsearMontoSeguro(u.saldo);
-            const coins = parseInt(u.criptomonedas || 0);
-            const riquezaTotal = saldoBase + (coins * precioActual);
-
-            console.log(`[Cargando] Usuario: ${u.nombreReal} | Saldo: ${saldoBase} | Riqueza: ${riquezaTotal}`);
-
+            const s = parsearMontoSeguro(u.saldo);
+            const c = parseInt(u.criptomonedas || 0);
             usuariosArray.push({
+                nombre: u.nombreReal || child.key,
+                riqueza: s + (c * precioActual),
                 id: child.key,
-                nombre: u.nombreReal,
-                saldo: saldoBase,
-                riquezaTotal: riquezaTotal,
-                criptos: coins,
-                iconoActivo: u.iconoActivo || '',
-                firewallHasta: u.firewallHasta || 0,
-                itemsMercado: u.itemsMercado || []
+                icono: u.iconoActivo || '',
+                items: u.itemsMercado || []
             });
         });
 
-        // ORDENAMIENTO MATEMÁTICO ABSOLUTO
-        usuariosArray.sort((a, b) => {
-            const vA = Number(a.riquezaTotal) || 0;
-            const vB = Number(b.riquezaTotal) || 0;
-            
-            // Si el número es demasiado grande para restarlo, usamos comparación lógica
-            if (vB > vA) return 1;
-            if (vB < vA) return -1;
-            return 0;
-        });
+        // ORDENAR: El más rico arriba
+        usuariosArray.sort((a, b) => (b.riqueza > a.riqueza ? 1 : -1));
 
         // Tomamos solo a los 10 mejores.
         const top10 = usuariosArray.slice(0, 10);
